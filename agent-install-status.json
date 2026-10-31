@@ -1,0 +1,89 @@
+﻿{
+    "summary":  {
+                    "agentsDir":  "C:\\Users\\Administrator\\.trae-cn\\agents",
+                    "installed":  1,
+                    "scannedAt":  "2026-10-31 05:35:45",
+                    "partial":  0,
+                    "missing":  10,
+                    "skillsDir":  "C:\\Users\\Administrator\\.trae-cn\\skills"
+                },
+    "agents":  {
+                   "arch-designer":  {
+                                         "status":  "not-installed",
+                                         "skillMdExists":  false,
+                                         "agentMdExists":  false,
+                                         "installDate":  null,
+                                         "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\arch-designer.md"
+                                     },
+                   "safety-auditor":  {
+                                          "status":  "not-installed",
+                                          "skillMdExists":  false,
+                                          "agentMdExists":  false,
+                                          "installDate":  null,
+                                          "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\safety-auditor.md"
+                                      },
+                   "backend-expert":  {
+                                          "status":  "not-installed",
+                                          "skillMdExists":  false,
+                                          "agentMdExists":  false,
+                                          "installDate":  null,
+                                          "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\backend-expert.md"
+                                      },
+                   "drize-engineer":  {
+                                          "status":  "not-installed",
+                                          "skillMdExists":  false,
+                                          "agentMdExists":  false,
+                                          "installDate":  null,
+                                          "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\drize-engineer.md"
+                                      },
+                   "ledger-keeper":  {
+                                         "status":  "installed",
+                                         "skillMdExists":  true,
+                                         "agentMdExists":  true,
+                                         "installDate":  "2026-10-30",
+                                         "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\ledger-keeper.md"
+                                     },
+                   "agents-builder":  {
+                                          "status":  "not-installed",
+                                          "skillMdExists":  false,
+                                          "agentMdExists":  false,
+                                          "installDate":  null,
+                                          "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\agents-builder.md"
+                                      },
+                   "rca-analyst":  {
+                                       "status":  "not-installed",
+                                       "skillMdExists":  false,
+                                       "agentMdExists":  false,
+                                       "installDate":  null,
+                                       "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\rca-analyst.md"
+                                   },
+                   "competitor-surveyor":  {
+                                               "status":  "not-installed",
+                                               "skillMdExists":  false,
+                                               "agentMdExists":  false,
+                                               "installDate":  null,
+                                               "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\competitor-surveyor.md"
+                                           },
+                   "mcp-finder":  {
+                                      "status":  "not-installed",
+                                      "skillMdExists":  false,
+                                      "agentMdExists":  false,
+                                      "installDate":  null,
+                                      "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\mcp-finder.md"
+                                  },
+                   "project-taker":  {
+                                         "status":  "not-installed",
+                                         "skillMdExists":  false,
+                                         "agentMdExists":  false,
+                                         "installDate":  null,
+                                         "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\project-taker.md"
+                                     },
+                   "report-writer":  {
+                                         "status":  "not-installed",
+                                         "skillMdExists":  false,
+                                         "agentMdExists":  false,
+                                         "installDate":  null,
+                                         "targetPath":  "C:\\Users\\Administrator\\.trae-cn\\agents\\report-writer.md"
+                                     }
+               }
+}

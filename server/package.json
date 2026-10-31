@@ -1,0 +1,23 @@
+{
+  "name": "agent-workbench-server",
+  "version": "3.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ws": "^8.18.0",
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.12",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.7.0"
+  }
+}

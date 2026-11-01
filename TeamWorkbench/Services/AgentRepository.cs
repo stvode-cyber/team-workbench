@@ -129,12 +129,15 @@ public static class AgentRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO agents (id, name, cn_name, priority, emoji, "desc", role,
-                how_to_trigger, process, boundary, tools, depends_on, updated_at)
+                how_to_trigger, process, boundary, tools, depends_on,
+                install_status, install_date, runtime_status, last_seen, updated_at)
             VALUES ($id, $name, $cn_name, $priority, $emoji, $desc, $role,
-                $trigger, $process, $boundary, $tools, $depends, datetime('now'));
+                $trigger, $process, $boundary, $tools, $depends,
+                $install, $installDate, $runtime, $lastSeen, datetime('now'));
             """;
 
-        cmd.Parameters.AddWithValue("$id", agent.Id);
+        // Id==0 时用 NULL 让 SQLite 自增（INTEGER PRIMARY KEY AUTOINCREMENT）
+        cmd.Parameters.AddWithValue("$id", agent.Id == 0 ? DBNull.Value : (object)agent.Id);
         cmd.Parameters.AddWithValue("$name", agent.Name);
         cmd.Parameters.AddWithValue("$cn_name", agent.CnName);
         cmd.Parameters.AddWithValue("$priority", agent.Priority);
@@ -146,9 +149,19 @@ public static class AgentRepository
         cmd.Parameters.AddWithValue("$boundary", JsonSerializer.Serialize(agent.Boundary, JsonOpts));
         cmd.Parameters.AddWithValue("$tools", JsonSerializer.Serialize(agent.Tools, JsonOpts));
         cmd.Parameters.AddWithValue("$depends", JsonSerializer.Serialize(agent.DependsOn, JsonOpts));
+        cmd.Parameters.AddWithValue("$install", (object?)agent.InstallStatus ?? "not-installed");
+        cmd.Parameters.AddWithValue("$installDate", (object?)agent.InstallDate ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$runtime", (object?)agent.RuntimeStatus ?? "idle");
+        cmd.Parameters.AddWithValue("$lastSeen", (object?)agent.LastSeen ?? DBNull.Value);
 
         cmd.ExecuteNonQuery();
-        return agent.Id;
+
+        // 拿自增 id（ExecuteScalar 只跑 INSERT，batched 第二条被忽略）
+        using var idCmd = conn.CreateCommand();
+        idCmd.CommandText = "SELECT last_insert_rowid();";
+        var newId = Convert.ToInt32(idCmd.ExecuteScalar());
+        agent.Id = newId;
+        return newId;
     }
 
     /// <summary>

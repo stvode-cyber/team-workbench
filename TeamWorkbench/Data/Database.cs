@@ -13,16 +13,26 @@ public static class Database
     public const int SchemaVersion = 2;
 
     /// <summary>
-    /// 启动初始化：幂等建表 + 列级 PRAGMA 迁移 + 版本记录
-    /// 绝不删库。
+    /// 启动初始化（默认 AppData 路径）。测试用 Initialize(string path) 重载。
     /// </summary>
     public static void Initialize()
     {
-        // DB 位置：%APPDATA%\TeamWorkbench\data.db
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var dir = Path.Combine(appData, "TeamWorkbench");
         Directory.CreateDirectory(dir);
-        DbPath = Path.Combine(dir, "data.db");
+        Initialize(Path.Combine(dir, "data.db"));
+    }
+
+    /// <summary>
+    /// 指定路径初始化（测试用临时文件 / :memory:）
+    /// </summary>
+    public static void Initialize(string path)
+    {
+        DbPath = path;
+        // 确保目录存在（如果是文件路径且父目录不存在）
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir) && !path.StartsWith(":memory:"))
+            Directory.CreateDirectory(dir);
 
         using var conn = new SqliteConnection($"Data Source={DbPath}");
         conn.Open();

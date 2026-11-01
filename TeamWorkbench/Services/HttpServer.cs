@@ -22,6 +22,22 @@ public class HttpServer : IDisposable
     private Task? _listenTask;
     private static readonly DateTime _startTime = DateTime.Now;
 
+    // 静态文件：启动时读一次缓存，避免每次请求都扫磁盘
+    private static byte[]? _openapiJsonBytes;
+    private static readonly byte[] _reDocHtmlBytes = Encoding.UTF8.GetBytes(
+        @"<!DOCTYPE html>
+<html>
+<head>
+<meta charset=""utf-8""/>
+<meta name=""viewport"" content=""width=device-width, initial-scale=1""/>
+<title>AI 专岗员工工作台 · REST API 文档</title>
+</head>
+<body>
+<redoc spec-url=""/openapi.json""></redoc>
+<script src=""https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js""></script>
+</body>
+</html>");
+
     // ============================================================
     // 生命周期
     // ============================================================
@@ -29,6 +45,24 @@ public class HttpServer : IDisposable
     public async Task StartAsync()
     {
         Database.Initialize();
+
+        // 缓存 docs/openapi.json（优先从 publish 目录，其次从 project root）
+        try
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "docs", "openapi.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "docs", "openapi.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "docs", "openapi.json"),
+            };
+            foreach (var p in candidates)
+            {
+                if (File.Exists(p)) { _openapiJsonBytes = File.ReadAllBytes(p); break; }
+            }
+            if (_openapiJsonBytes == null)
+                Debug.WriteLine("⚠️ openapi.json not found in known locations (skip /openapi.json endpoint)");
+        }
+        catch (Exception ex) { Debug.WriteLine($"⚠️ openapi.json cache failed: {ex.Message}"); }
         _listener = new HttpListener();
         _listener.Prefixes.Add(AppConfig.LocalhostPrefix);
         _listener.Start();
@@ -82,6 +116,16 @@ public class HttpServer : IDisposable
             {
                 if (req.IsWebSocketRequest) { await WebSocketServer.HandleAsync(ctx); return; }
                 await WriteJsonAsync(resp, 400, new { error = "Expected WebSocket" }); return;
+            }
+
+            // ========== 静态文件：/openapi.json + /docs（ReDoc） ==========
+            if (segments.Length == 1 && segments[0] == "openapi.json" && method == "GET")
+            {
+                await HandleOpenApi(resp); return;
+            }
+            if (segments.Length == 1 && segments[0] == "docs" && method == "GET")
+            {
+                await HandleDocs(resp); return;
             }
 
             // ========== P1 新增：/health, /stats, /events ==========
@@ -308,6 +352,32 @@ public class HttpServer : IDisposable
         AgentRepository.Delete(name);
         EventBroadcaster.Broadcast("delete", name);
         await WriteJsonAsync(resp, 200, new { ok = true, name });
+    }
+
+    // ============================================================
+    // 静态文件 handler：/openapi.json + /docs（ReDoc）
+    // ============================================================
+
+    private static async Task HandleOpenApi(HttpListenerResponse resp)
+    {
+        if (_openapiJsonBytes == null)
+        {
+            await WriteJsonAsync(resp, 404, new { error = "openapi.json not found" }); return;
+        }
+        resp.StatusCode = 200;
+        resp.ContentType = "application/json; charset=utf-8";
+        resp.ContentLength64 = _openapiJsonBytes.Length;
+        await resp.OutputStream.WriteAsync(_openapiJsonBytes, 0, _openapiJsonBytes.Length);
+        await resp.OutputStream.FlushAsync();
+    }
+
+    private static async Task HandleDocs(HttpListenerResponse resp)
+    {
+        resp.StatusCode = 200;
+        resp.ContentType = "text/html; charset=utf-8";
+        resp.ContentLength64 = _reDocHtmlBytes.Length;
+        await resp.OutputStream.WriteAsync(_reDocHtmlBytes, 0, _reDocHtmlBytes.Length);
+        await resp.OutputStream.FlushAsync();
     }
 
     // ============================================================

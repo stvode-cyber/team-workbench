@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using TeamWorkbench.ViewModels;
+using TeamWorkbench.Views;
 
 namespace TeamWorkbench;
 
@@ -15,6 +16,9 @@ public partial class MainWindow : Window
 
         // 顶栏按钮点击 → 显示/隐藏浮动球
         OrbToggleBtn.Click += (s, e) => ToggleOrb();
+
+        // Phase 2 新增：调用链画布按钮
+        CallChainBtn.Click += (s, e) => OpenCallChain();
     }
 
     /// <summary>
@@ -64,5 +68,16 @@ public partial class MainWindow : Window
         {
             _orbWindow.SetAgentStatus(vm.SelectedAgent.InstallStatus, vm.SelectedAgent.RuntimeStatus);
         }
+    }
+
+    /// <summary>
+    /// Phase 2 新增：打开调用链画布窗口
+    /// 用 ShowDialog 模态——防止在画布打开时主窗口触发事件
+    /// </summary>
+    private void OpenCallChain()
+    {
+        var win = new CallChainWindow();
+        win.Owner = this;
+        win.ShowDialog();
     }
 }

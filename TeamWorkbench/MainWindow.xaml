@@ -223,11 +223,12 @@
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{StaticResource BgMidBrush}" Padding="16,0">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>   <!-- 0 标题 -->
+                    <ColumnDefinition Width="*"/>        <!-- 1 搜索框 -->
+                    <ColumnDefinition Width="110"/>      <!-- 2 筛选 ComboBox -->
+                    <ColumnDefinition Width="Auto"/>     <!-- 3 StatusText -->
+                    <ColumnDefinition Width="Auto"/>     <!-- 4 OrbToggleBtn 🔵 -->
+                    <ColumnDefinition Width="Auto"/>     <!-- 5 CallChainBtn 🔗 -->
                 </Grid.ColumnDefinitions>
 
                 <!-- 标题 -->
@@ -260,6 +261,13 @@
                         Background="{StaticResource BgLightBrush}" BorderThickness="0"
                         Foreground="White" FontSize="16"
                         Cursor="Hand" Padding="0" Margin="0"/>
+
+                <!-- 调用链画布按钮（Phase 2 新增）-->
+                <Button x:Name="CallChainBtn" Grid.Column="5"
+                        Content="🔗 调用链" Height="32"
+                        Background="{StaticResource BgLightBrush}" BorderThickness="0"
+                        Foreground="White" FontSize="12"
+                        Cursor="Hand" Padding="10,0" Margin="6,0,0,0"/>
             </Grid>
         </Border>
 

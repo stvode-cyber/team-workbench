@@ -1,15 +1,36 @@
 ---
 project: AI 专岗员工可视化工作台
 version: "3.0"
-updated: 2026-10-31
+updated: 2026-11-01
 owner: 1号指令母版配套
-stage: "v3.0 MVP 全绿交付"
+stage: "✅ v3.0 C# WPF Native MVP 全栈交付"
+git_tag: "v3.0-csharp-wpf"
 ---
 
 # AI 专岗员工可视化工作台 · AGENTS.md
 
 > 本文件是项目**设计层**（业务方向 / 技术栈 / 目录约定 / 安全红线）。
 > 执行层规矩（铁律 71 条 / 四件套格式 / 树结构输出）在 1号指令 v6.4-6 里，不在此文件。
+
+## ⭐ v3.0 C# WPF Native 交付点（2026-11-01）
+
+v3.0 全栈重写完成，**Node backend + Vue3 frontend 原型已被完全取代**。
+
+| 组件 | v2.0（旧） | v3.0（新） |
+|---|---|---|
+| 前端 | Vue3 SPA + Node/Express | **WPF 原生双面板 + MVVM + 深色主题** |
+| 后端 | Express router 11 路由 | **HttpListener 自托管 11 路由 + WebSocket /events** |
+| 数据 | SQLite + better-sqlite3 | **SQLite + Microsoft.Data.Sqlite**（同 schema） |
+| 托盘 | ❌ | **✅ System.Windows.Forms.NotifyIcon** |
+| 热键 | ❌ | **✅ Ctrl+Shift+A RegisterHotKey P/Invoke** |
+| 单实例 | ❌ | **✅ Mutex** |
+| 浮动球 | Vue 组件（仅参考） | **✅ OrbWindow 原生（拖拽+吸屏+状态徽章）** |
+| 发布 | npm run build | **✅ dotnet publish → 2.42 MB 单文件 exe** |
+| 源码 | `server/` + `web/` | **`TeamWorkbench/` 单一 C# 项目** |
+
+**交付物**：`dist/v3.0-csharp-wpf/TeamWorkbench.exe`
+**Git tag**：`v3.0-csharp-wpf` → commit `31c143c`
+**冒烟测试**：7/7 HTTP + Mutex + cn_name snake_case 全绿
 
 ---
 

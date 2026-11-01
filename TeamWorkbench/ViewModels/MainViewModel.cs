@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Data;
 using TeamWorkbench.Data;
 using TeamWorkbench.Models;
 using TeamWorkbench.Services;
@@ -7,24 +9,42 @@ namespace TeamWorkbench.ViewModels;
 
 /// <summary>
 /// 主窗口 ViewModel
-/// 持有 ObservableCollection<AgentViewModel> + SelectedAgent + Summary
+/// · ObservableCollection 存全量 AgentViewModel
+/// · CollectionViewSource 做 Filter（搜索 + 状态筛选）
 /// </summary>
 public class MainViewModel : ObservableObject
 {
+    // ===== 全量 + 过滤视图 =====
     public ObservableCollection<AgentViewModel> Agents { get; } = new();
+    public ICollectionView FilteredAgents { get; }
 
+    // ===== 搜索 + 筛选 =====
+    private string _searchText = "";
+    public string SearchText
+    {
+        get => _searchText;
+        set { if (SetProperty(ref _searchText, value)) FilteredAgents.Refresh(); }
+    }
+
+    // 0=全部, P0, P1, installed, not-installed, busy, idle
+    private string _statusFilter = "全部";
+    public string StatusFilter
+    {
+        get => _statusFilter;
+        set { if (SetProperty(ref _statusFilter, value)) FilteredAgents.Refresh(); }
+    }
+
+    public static List<string> StatusFilterOptions { get; } = new()
+    {
+        "全部", "P0", "P1", "已装", "待装", "忙碌", "待命"
+    };
+
+    // ===== 选中 =====
     private AgentViewModel? _selectedAgent;
     public AgentViewModel? SelectedAgent
     {
         get => _selectedAgent;
         set => SetProperty(ref _selectedAgent, value);
-    }
-
-    private string _statusText = "";
-    public string StatusText
-    {
-        get => _statusText;
-        set => SetProperty(ref _statusText, value);
     }
 
     // ===== Summary =====
@@ -40,10 +60,47 @@ public class MainViewModel : ObservableObject
     private int _busy;
     public int Busy { get => _busy; set => SetProperty(ref _busy, value); }
 
-    /// <summary>
-    /// 从 DB 读全量 + 绑定到 ObservableCollection
-    /// 同步调用（WPF 启动在 UI 线程，数据量小直接同步无问题）
-    /// </summary>
+    private string _statusText = "";
+    public string StatusText
+    {
+        get => _statusText;
+        set => SetProperty(ref _statusText, value);
+    }
+
+    public MainViewModel()
+    {
+        FilteredAgents = CollectionViewSource.GetDefaultView(Agents);
+        FilteredAgents.Filter = FilterAgent;
+    }
+
+    private bool FilterAgent(object obj)
+    {
+        if (obj is not AgentViewModel a) return false;
+
+        // 文本搜索：cn_name + name + role
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            var s = SearchText.Trim().ToLowerInvariant();
+            if (!a.CnName.ToLowerInvariant().Contains(s) &&
+                !a.Name.ToLowerInvariant().Contains(s) &&
+                !(a.Role?.ToLowerInvariant().Contains(s) ?? false))
+                return false;
+        }
+
+        // 状态筛选
+        return StatusFilter switch
+        {
+            "全部" => true,
+            "P0" => a.Priority == "P0",
+            "P1" => a.Priority == "P1",
+            "已装" => a.InstallStatus == "installed",
+            "待装" => a.InstallStatus != "installed",
+            "忙碌" => a.RuntimeStatus == "busy",
+            "待命" => a.RuntimeStatus != "busy",
+            _ => true
+        };
+    }
+
     public void LoadData()
     {
         try
@@ -63,7 +120,6 @@ public class MainViewModel : ObservableObject
 
             StatusText = $"✅ DB就绪 · Agent: {Total} 已装:{Installed} 待装:{Missing} 忙碌:{Busy}";
 
-            // 默认选中第一条
             if (Agents.Count > 0 && SelectedAgent == null)
                 SelectedAgent = Agents[0];
         }

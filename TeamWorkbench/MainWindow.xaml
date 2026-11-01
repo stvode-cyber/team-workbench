@@ -219,31 +219,54 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 顶栏（跨两列）-->
+        <!-- 顶栏（跨两列 · 5 列：标题 + 搜索框 + 筛选 + 状态 + 浮动球按钮）-->
         <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{StaticResource BgMidBrush}" Padding="16,0">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="110"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+
+                <!-- 标题 -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                     <TextBlock Text="🤖 AI 专岗员工面板" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                    <TextBlock Text=" · v3.0 C# WPF 原生" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,4,0,0"/>
+                    <TextBlock Text=" · v3.0" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,4,0,0"/>
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource AccentBlueBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <Button x:Name="OrbToggleBtn" Grid.Column="2"
+
+                <!-- 搜索框（绑定 SearchText + PropertyChanged 实时触发 Filter）-->
+                <TextBox Grid.Column="1"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource SearchTextBox}"
+                         VerticalAlignment="Center"
+                         Margin="0,0,12,0"/>
+
+                <!-- 筛选 ComboBox（绑定 StatusFilter + StatusFilterOptions）-->
+                <ComboBox Grid.Column="2"
+                          ItemsSource="{Binding StatusFilterOptions}"
+                          SelectedItem="{Binding StatusFilter}"
+                          Style="{StaticResource FilterComboBox}"
+                          VerticalAlignment="Center"
+                          Margin="0,0,12,0"/>
+
+                <!-- StatusText（DB 连接状态）-->
+                <TextBlock Grid.Column="3" Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource AccentBlueBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                <!-- 浮动球切换按钮 -->
+                <Button x:Name="OrbToggleBtn" Grid.Column="4"
                         Content="🔵" Width="36" Height="32"
                         Background="{StaticResource BgLightBrush}" BorderThickness="0"
                         Foreground="White" FontSize="16"
-                        Cursor="Hand" Padding="0" Margin="0,0,0,0"/>
+                        Cursor="Hand" Padding="0" Margin="0"/>
             </Grid>
         </Border>
 
-        <!-- 左侧：Agent 花名册 ListBox -->
+        <!-- 左侧：Agent 花名册 ListBox（绑定 FilteredAgents，不再是全量 Agents）-->
         <ListBox Grid.Row="1" Grid.Column="0"
                  Style="{StaticResource AgentListBox}"
-                 ItemsSource="{Binding Agents}"
+                 ItemsSource="{Binding FilteredAgents}"
                  SelectedItem="{Binding SelectedAgent}"
                  ItemTemplate="{StaticResource AgentListItemTemplate}"/>
 

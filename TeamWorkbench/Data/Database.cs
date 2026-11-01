@@ -13,31 +13,45 @@ public static class Database
     public const int SchemaVersion = 2;
 
     /// <summary>
-    /// 启动初始化（默认 AppData 路径）。测试用 Initialize(string path) 重载。
+    /// 启动初始化（默认 AppData 路径）。
+    /// 幂等：DbPath 已被外部设过时（测试 fixture 场景）只跑 EnsureSchema。
     /// </summary>
     public static void Initialize()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var dir = Path.Combine(appData, "TeamWorkbench");
-        Directory.CreateDirectory(dir);
-        Initialize(Path.Combine(dir, "data.db"));
+        if (string.IsNullOrEmpty(DbPath))
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var dir = Path.Combine(appData, "TeamWorkbench");
+            Directory.CreateDirectory(dir);
+            DbPath = Path.Combine(dir, "data.db");
+        }
+
+        EnsureSchema();
     }
 
     /// <summary>
-    /// 指定路径初始化（测试用临时文件 / :memory:）
+    /// 指定路径初始化（测试用临时文件 / :memory:）。
+    /// 总是强制切 DbPath——测试 fixture 每次需要独立 temp file。
     /// </summary>
     public static void Initialize(string path)
     {
         DbPath = path;
-        // 确保目录存在（如果是文件路径且父目录不存在）
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir) && !path.StartsWith(":memory:"))
             Directory.CreateDirectory(dir);
 
+        EnsureSchema();
+    }
+
+    /// <summary>
+    /// 确保 schema 已就绪（CREATE TABLE IF NOT EXISTS + PRAGMA 迁移 + 版本记录）
+    /// </summary>
+    private static void EnsureSchema()
+    {
         using var conn = new SqliteConnection($"Data Source={DbPath}");
         conn.Open();
 
-        // ========== 1. 幂等建表 ==========
+        // 幂等建表
         var cmd = conn.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS agents (
@@ -83,10 +97,10 @@ public static class Database
             """;
         cmd.ExecuteNonQuery();
 
-        // ========== 2. 列级 PRAGMA 迁移：agents 表缺啥补啥 ==========
+        // 列级 PRAGMA 迁移
         MigrateAgentsTable(conn);
 
-        // ========== 3. 记录版本 ==========
+        // 记录版本
         cmd.CommandText = $"INSERT OR REPLACE INTO schema_version VALUES ({SchemaVersion}, datetime('now'));";
         cmd.ExecuteNonQuery();
     }

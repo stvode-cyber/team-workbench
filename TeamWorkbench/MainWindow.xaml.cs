@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using TeamWorkbench.Services;
 using TeamWorkbench.ViewModels;
 using TeamWorkbench.Views;
 
@@ -39,12 +40,19 @@ public partial class MainWindow : Window
                 SyncOrbStatus();
         };
 
-        // Phase 5: 点 X 关闭 → 藏托盘而非退出
+        // Phase 2: 点 X 关闭 → 藏托盘而非退出
         Closing += (s, args) =>
         {
             args.Cancel = true;
+            // Phase 4: 关闭前取消事件订阅（托盘时 MainWindow 仍在，
+            // 但用户显式关闭后如果再开新实例，旧实例不应继续订阅）
+            EventBroadcaster.OnEventFired -= OnBackendEvent;
             Hide();
         };
+
+        // Phase 4: 订阅 EventBroadcaster C# 事件桥
+        // 后端任意路径调 Broadcast → 自动触发 WPF LoadData()
+        EventBroadcaster.OnEventFired += OnBackendEvent;
     }
 
     private void ToggleOrb()
@@ -137,5 +145,27 @@ public partial class MainWindow : Window
         }
 
         vm.LoadData();
+    }
+
+    /// <summary>
+    /// Phase 4: EventBroadcaster C# 事件桥 handler
+    /// · 后端 HTTP API / FileInstaller / HttpServer 任意路径调 Broadcast
+    /// · 触发 WPF UI 刷新 → 状态灯自动变
+    /// · 关键：可能在后台线程（HTTP listener 线程）触发
+    ///   → Dispatcher.CheckAccess() 判断 → Invoke 回 UI 线程
+    /// </summary>
+    private void OnBackendEvent(string eventType, string agentName, object? data)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        System.Diagnostics.Debug.WriteLine(
+            $"📡 WS-EVENT 收到: type={eventType} agent={agentName}");
+
+        // Dispatcher.CheckAccess() → true 表示已在 UI 线程，直接调
+        // false 表示后台线程，需要 Invoke 回 UI 线程（UI 线程安全）
+        if (Dispatcher.CheckAccess())
+            vm.LoadData();
+        else
+            Dispatcher.Invoke(() => vm.LoadData());
     }
 }

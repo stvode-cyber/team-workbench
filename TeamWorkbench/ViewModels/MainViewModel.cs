@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Data;
+using System.Windows.Threading;
 using TeamWorkbench.Data;
 using TeamWorkbench.Models;
 using TeamWorkbench.Services;
@@ -71,7 +72,21 @@ public class MainViewModel : ObservableObject
     {
         FilteredAgents = CollectionViewSource.GetDefaultView(Agents);
         FilteredAgents.Filter = FilterAgent;
+
+        // Phase 4: Debounce Timer — 500ms 窗口内多次 LoadData() 合并成一次
+        // 防止高频事件（scan 11 个 agent = 11 条）导致 UI 抖动
+        _debounceTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        _debounceTimer.Tick += (s, e) =>
+        {
+            _debounceTimer.Stop();
+            DoLoadData();
+        };
     }
+
+    private readonly DispatcherTimer _debounceTimer;
 
     private bool FilterAgent(object obj)
     {
@@ -101,7 +116,21 @@ public class MainViewModel : ObservableObject
         };
     }
 
+    /// <summary>
+    /// 对外统一入口（被 MainWindow / InstallDialog / EventBroadcaster 订阅回调调用）
+    /// 加 DispatcherTimer 500ms debounce — 合并高频事件
+    /// </summary>
     public void LoadData()
+    {
+        // 重置计时器：每次调用都从 0 开始算 500ms
+        _debounceTimer.Stop();
+        _debounceTimer.Start();
+    }
+
+    /// <summary>
+    /// 实际重载（Debounce Timer 500ms 后触发）
+    /// </summary>
+    private void DoLoadData()
     {
         try
         {

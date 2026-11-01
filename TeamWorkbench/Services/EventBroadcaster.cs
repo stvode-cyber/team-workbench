@@ -13,6 +13,12 @@ namespace TeamWorkbench.Services;
 /// </summary>
 public static class EventBroadcaster
 {
+    /// <summary>
+    /// C# 进程内事件桥 — WPF 主窗口订阅这个来自动刷新 UI
+    /// 跟 WebSocket /events 并行（外部客户端走 WS，内部 WPF 走这个）
+    /// </summary>
+    public static event Action<string, string, object?>? OnEventFired;
+
     private static WebSocket? _ws;
     private static readonly object _lock = new();
 
@@ -67,6 +73,10 @@ public static class EventBroadcaster
         });
 
         _ = SendToWsAsync(payload);
+
+        // 3. C# 进程内事件桥（给 WPF 主窗口订阅，自动刷新 UI）
+        //    与 WS 并行，零网络开销，进程内直接触发
+        try { OnEventFired?.Invoke(eventType, agentName, eventData); } catch { }
     }
 
     private static async Task SendToWsAsync(string json)

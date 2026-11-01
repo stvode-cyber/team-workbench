@@ -32,6 +32,9 @@ Thumbs.db
 # .NET / C# WPF
 TeamWorkbench/bin/
 TeamWorkbench/obj/
+TeamWorkbench.Tests/bin/
+TeamWorkbench.Tests/obj/
+TeamWorkbench.Tests/TestResults/
 TeamWorkbench/Data/data.db
 TeamWorkbench/Data/data.db-shm
 TeamWorkbench/Data/data.db-wal

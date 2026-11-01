@@ -13,6 +13,17 @@ namespace TeamWorkbench.Services;
 public static class FileInstaller
 {
     // ============================================================
+    // 测试用 override（[assembly: InternalsVisibleTo] 让测试项目能设）
+    // ============================================================
+    internal static string? SourceDirRootOverride { get; set; }
+    internal static string? AgentsDirOverride { get; set; }
+    internal static string? SkillsDirOverride { get; set; }
+
+    private static string SourceDirRoot => SourceDirRootOverride ?? AppConfig.SourceDirRoot;
+    private static string AgentsDir => AgentsDirOverride ?? AppConfig.AgentsDir;
+    private static string SkillsDir => SkillsDirOverride ?? AppConfig.SkillsDir;
+
+    // ============================================================
     // 找源目录（递归搜 02_AGENTS 下含 agentName 的子目录）
     // ============================================================
 
@@ -21,9 +32,9 @@ public static class FileInstaller
     /// </summary>
     public static (string agentMd, string? skillMd)? FindSource(string agentName)
     {
-        if (!Directory.Exists(AppConfig.SourceDirRoot)) return null;
+        if (!Directory.Exists(SourceDirRoot)) return null;
 
-        var dir = Directory.EnumerateDirectories(AppConfig.SourceDirRoot)
+        var dir = Directory.EnumerateDirectories(SourceDirRoot)
             .FirstOrDefault(d => d.Contains(agentName, StringComparison.OrdinalIgnoreCase));
 
         if (dir == null) return null;
@@ -65,16 +76,16 @@ public static class FileInstaller
         // [前置校验 3] 目标 agent.md 不被其他进程占锁（File.Exists 就不覆盖，幂等）
         try
         {
-            Directory.CreateDirectory(AppConfig.AgentsDir);
-            Directory.CreateDirectory(Path.Combine(AppConfig.SkillsDir, agentName));
+            Directory.CreateDirectory(AgentsDir);
+            Directory.CreateDirectory(Path.Combine(SkillsDir, agentName));
 
-            var agentMdDest = Path.Combine(AppConfig.AgentsDir, $"{agentName}.md");
+            var agentMdDest = Path.Combine(AgentsDir, $"{agentName}.md");
             File.Copy(source.Value.agentMd, agentMdDest, overwrite: true);
             copied.Add(agentMdDest);
 
             if (source.Value.skillMd != null)
             {
-                var skillDest = Path.Combine(AppConfig.SkillsDir, agentName, "SKILL.md");
+                var skillDest = Path.Combine(SkillsDir, agentName, "SKILL.md");
                 File.Copy(source.Value.skillMd, skillDest, overwrite: true);
                 copied.Add(skillDest);
             }
@@ -117,14 +128,14 @@ public static class FileInstaller
 
         try
         {
-            var agentMdDest = Path.Combine(AppConfig.AgentsDir, $"{agentName}.md");
+            var agentMdDest = Path.Combine(AgentsDir, $"{agentName}.md");
             if (File.Exists(agentMdDest))
             {
                 File.Delete(agentMdDest);
                 deleted.Add(agentMdDest);
             }
 
-            var skillDir = Path.Combine(AppConfig.SkillsDir, agentName);
+            var skillDir = Path.Combine(SkillsDir, agentName);
             if (Directory.Exists(skillDir))
             {
                 Directory.Delete(skillDir, recursive: true);
@@ -161,8 +172,8 @@ public static class FileInstaller
         if (a == null)
             return new ScanOneResult(false, agentName, "", "", false);
 
-        var agentMdDest = Path.Combine(AppConfig.AgentsDir, $"{agentName}.md");
-        var skillMdDest = Path.Combine(AppConfig.SkillsDir, agentName, "SKILL.md");
+        var agentMdDest = Path.Combine(AgentsDir, $"{agentName}.md");
+        var skillMdDest = Path.Combine(SkillsDir, agentName, "SKILL.md");
 
         bool hasAgent = File.Exists(agentMdDest);
         bool hasSkill = File.Exists(skillMdDest);
@@ -191,8 +202,8 @@ public static class FileInstaller
 
         foreach (var a in agents)
         {
-            var agentMdDest = Path.Combine(AppConfig.AgentsDir, $"{a.Name}.md");
-            var skillMdDest = Path.Combine(AppConfig.SkillsDir, a.Name, "SKILL.md");
+            var agentMdDest = Path.Combine(AgentsDir, $"{a.Name}.md");
+            var skillMdDest = Path.Combine(SkillsDir, a.Name, "SKILL.md");
 
             bool hasAgent = File.Exists(agentMdDest);
             bool hasSkill = File.Exists(skillMdDest);

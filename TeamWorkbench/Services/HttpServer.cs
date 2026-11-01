@@ -12,7 +12,7 @@ namespace TeamWorkbench.Services;
 
 /// <summary>
 /// HttpListener 自托管 HTTP + WebSocket 服务器
-/// 路由分发：11 条 REST + 1 条 WS /events
+/// 路由分发：17 条 REST（11 原始 + 6 新增）+ 1 条 WS /events
 /// 异步线程池跑，不阻塞 WPF 消息泵
 /// </summary>
 public class HttpServer : IDisposable
@@ -20,6 +20,7 @@ public class HttpServer : IDisposable
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
     private Task? _listenTask;
+    private static readonly DateTime _startTime = DateTime.Now;
 
     // ============================================================
     // 生命周期
@@ -27,6 +28,7 @@ public class HttpServer : IDisposable
 
     public async Task StartAsync()
     {
+        Database.Initialize();
         _listener = new HttpListener();
         _listener.Prefixes.Add(AppConfig.LocalhostPrefix);
         _listener.Start();
@@ -54,14 +56,9 @@ public class HttpServer : IDisposable
             try
             {
                 var ctx = await _listener.GetContextAsync();
-                // fire-and-forget 每个请求（不阻塞下一个请求）
                 _ = HandleContextAsync(ctx, ct);
             }
-            catch (HttpListenerException)
-            {
-                // Stop 时正常抛
-                break;
-            }
+            catch (HttpListenerException) { break; }
         }
     }
 
@@ -78,38 +75,38 @@ public class HttpServer : IDisposable
         {
             var path = req.Url?.AbsolutePath ?? "/";
             var method = req.HttpMethod.ToUpperInvariant();
+            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
             // WebSocket 端点
             if (path == "/events")
             {
-                if (req.IsWebSocketRequest)
-                {
-                    await WebSocketServer.HandleAsync(ctx);
-                    return;
-                }
-                await WriteJsonAsync(resp, 400, new { error = "Expected WebSocket" });
-                return;
+                if (req.IsWebSocketRequest) { await WebSocketServer.HandleAsync(ctx); return; }
+                await WriteJsonAsync(resp, 400, new { error = "Expected WebSocket" }); return;
             }
 
-            // 11 条 REST 路由 — 精确匹配优先，模板匹配其次
-            // GET  /agents                → 全量
-            // GET  /agents/{name}         → 单条
-            // POST /agents/{name}/scan    → 扫安装状态
-            // POST /agents/{name}/status  → 改 runtime_status
-            // GET  /agents/{name}/events  → 查事件
-            // POST /agents/{name}/install → 安装
-            // POST /agents/{name}/uninstall → 卸载
-            // POST /agents/scan-all       → 全量扫描
-            // POST /agents/install-all    → 全量安装
-            // POST /agents                → 创建新 agent + 5 门槛
-            // PUT  /agents/{name}         → 更新
-            // DELETE /agents/{name}       → 删除
+            // ========== P1 新增：/health, /stats, /events ==========
+            if (segments.Length == 1 && segments[0] == "health" && method == "GET")
+            {
+                await HandleHealth(resp); return;
+            }
+            if (segments.Length == 1 && segments[0] == "stats" && method == "GET")
+            {
+                await HandleStats(resp); return;
+            }
+            if (segments.Length == 1 && segments[0] == "events")
+            {
+                if (method != "GET") { await WriteJsonAsync(resp, 405, new { error = "Method Not Allowed" }); return; }
+                await HandleEvents(req, resp); return;
+            }
+            if (segments.Length == 2 && segments[0] == "events" && segments[1] == "stats" && method == "GET")
+            {
+                await HandleEventsStats(resp); return;
+            }
 
-            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
+            // ========== /agents 系列 ==========
             if (segments.Length == 1 && segments[0] == "agents")
             {
-                if (method == "GET") { await HandleGetAll(resp); return; }
+                if (method == "GET") { await HandleGetAll(req, resp); return; }
                 if (method == "POST") { await HandleCreateAgent(req, resp); return; }
             }
 
@@ -133,6 +130,8 @@ public class HttpServer : IDisposable
                         await HandleStatus(req, name, resp); return;
                     case "events" when method == "GET":
                         await HandleGetEvents(name, resp); return;
+                    case "depends" when method == "POST":
+                        await HandleDepends(req, name, resp); return;
                     case "install" when method == "POST":
                         await HandleInstall(name, resp); return;
                     case "uninstall" when method == "POST":
@@ -156,21 +155,33 @@ public class HttpServer : IDisposable
             Debug.WriteLine($"❌ HttpServer error: {ex.Message}");
             await WriteJsonAsync(resp, 500, new { error = ex.Message });
         }
-        finally
-        {
-            try { resp.Close(); } catch { }
-        }
+        finally { try { resp.Close(); } catch { } }
     }
 
     // ============================================================
-    // Handler 实现
+    // 原有 11 条 handler
     // ============================================================
 
-    private static async Task HandleGetAll(HttpListenerResponse resp)
+    // 改：加 query 筛选 ?priority=P0&installed=true&runtime=busy
+    private static async Task HandleGetAll(HttpListenerRequest req, HttpListenerResponse resp)
     {
         var agents = AgentRepository.GetAll();
+
+        // P1: query 筛选（内存过滤，11 条数据足够快）
+        var qs = req.QueryString;
+        string? qPriority = qs["priority"]?.ToUpperInvariant();
+        string? qInstalled = qs["installed"]?.ToLowerInvariant();
+        string? qRuntime = qs["runtime"]?.ToLowerInvariant();
+
+        if (!string.IsNullOrEmpty(qPriority) && (qPriority == "P0" || qPriority == "P1"))
+            agents = agents.Where(a => a.Priority == qPriority).ToList();
+        if (!string.IsNullOrEmpty(qInstalled) && (qInstalled == "true" || qInstalled == "false"))
+            agents = agents.Where(a => (qInstalled == "true") == (a.InstallStatus == "installed")).ToList();
+        if (!string.IsNullOrEmpty(qRuntime) && (qRuntime == "busy" || qRuntime == "idle"))
+            agents = agents.Where(a => a.RuntimeStatus == qRuntime).ToList();
+
         var summary = AgentRepository.GetSummary();
-        await WriteJsonAsync(resp, 200, new { agents, summary });
+        await WriteJsonAsync(resp, 200, new { agents, summary, count = agents.Count });
     }
 
     private static async Task HandleGetByName(HttpListenerResponse resp, string name)
@@ -180,13 +191,14 @@ public class HttpServer : IDisposable
         await WriteJsonAsync(resp, 200, agent);
     }
 
+    // P0 Bug fix: ScanAll → ScanOne（之前扫全量 11 条再返回单条）
     private static async Task HandleScan(string name, HttpListenerResponse resp)
     {
         var agent = AgentRepository.GetByName(name);
         if (agent == null) { await WriteJsonAsync(resp, 404, new { error = $"agent '{name}' not found" }); return; }
-        var result = FileInstaller.ScanAll(); // 全量扫，拿到所有后返回这个 agent 的状态
+        var scan = FileInstaller.ScanOne(name);
         var refreshed = AgentRepository.GetByName(name);
-        await WriteJsonAsync(resp, 200, new { agent = refreshed, scan_all = result });
+        await WriteJsonAsync(resp, 200, new { agent = refreshed, scan });
     }
 
     private static async Task HandleStatus(HttpListenerRequest req, string name, HttpListenerResponse resp)
@@ -219,19 +231,7 @@ public class HttpServer : IDisposable
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT * FROM status_events WHERE agent_name = $name ORDER BY id DESC LIMIT 50";
         cmd.Parameters.AddWithValue("$name", name);
-        var list = new List<object>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            list.Add(new
-            {
-                id = reader.GetInt32(0),
-                agent_name = reader.GetString(1),
-                event_type = reader.GetString(2),
-                event_data = reader.IsDBNull(3) ? null : reader.GetString(3),
-                created_at = reader.IsDBNull(4) ? null : reader.GetString(4)
-            });
-        }
+        var list = ReadEvents(cmd);
         await WriteJsonAsync(resp, 200, list);
     }
 
@@ -265,25 +265,15 @@ public class HttpServer : IDisposable
     {
         var body = await ReadBodyAsync(req);
         Agent? candidate;
-        try
-        {
-            candidate = JsonSerializer.Deserialize<Agent>(body, JsonOpts);
-        }
-        catch
-        {
-            await WriteJsonAsync(resp, 400, new { error = "Invalid JSON body" }); return;
-        }
+        try { candidate = JsonSerializer.Deserialize<Agent>(body, JsonOpts); }
+        catch { await WriteJsonAsync(resp, 400, new { error = "Invalid JSON body" }); return; }
         if (candidate == null || string.IsNullOrWhiteSpace(candidate.Name))
         {
             await WriteJsonAsync(resp, 400, new { error = "name is required" }); return;
         }
 
-        // 5 条治理门槛
         var gateResult = GovernanceService.RunGateChecks(candidate);
-        if (!gateResult.AllPass)
-        {
-            await WriteJsonAsync(resp, 422, gateResult); return;
-        }
+        if (!gateResult.AllPass) { await WriteJsonAsync(resp, 422, gateResult); return; }
 
         try
         {
@@ -291,10 +281,7 @@ public class HttpServer : IDisposable
             EventBroadcaster.Broadcast("create", candidate.Name, new { cn_name = candidate.CnName });
             await WriteJsonAsync(resp, 201, candidate);
         }
-        catch (Exception ex)
-        {
-            await WriteJsonAsync(resp, 400, new { error = ex.Message });
-        }
+        catch (Exception ex) { await WriteJsonAsync(resp, 400, new { error = ex.Message }); }
     }
 
     private static async Task HandleUpdateAgent(HttpListenerRequest req, HttpListenerResponse resp, string name)
@@ -308,7 +295,6 @@ public class HttpServer : IDisposable
         catch { await WriteJsonAsync(resp, 400, new { error = "Invalid JSON" }); return; }
         if (updated == null) { await WriteJsonAsync(resp, 400, new { error = "Invalid body" }); return; }
 
-        // 保持 name 不变
         updated.Name = name;
         AgentRepository.Update(updated);
         await WriteJsonAsync(resp, 200, updated);
@@ -325,8 +311,157 @@ public class HttpServer : IDisposable
     }
 
     // ============================================================
+    // P1 新增 handler：health / stats / events / events-stats / depends
+    // ============================================================
+
+    private static async Task HandleHealth(HttpListenerResponse resp)
+    {
+        var agents = AgentRepository.GetAll();
+        await WriteJsonAsync(resp, 200, new
+        {
+            ok = true,
+            version = "v3.0-websocket-live",
+            db_agents = agents.Count,
+            uptime_sec = (int)(DateTime.Now - _startTime).TotalSeconds
+        });
+    }
+
+    private static async Task HandleStats(HttpListenerResponse resp)
+    {
+        var summary = AgentRepository.GetSummary();
+
+        using var conn = Database.GetConnection();
+        using var countCmd = conn.CreateCommand();
+        countCmd.CommandText = "SELECT COUNT(*) FROM status_events";
+        int eventsTotal = Convert.ToInt32(countCmd.ExecuteScalar());
+
+        using var uptimeCmd = conn.CreateCommand();
+        uptimeCmd.CommandText = "SELECT version, updated_at FROM schema_version ORDER BY updated_at DESC LIMIT 1";
+        string? dbVersion = null, dbUpdatedAt = null;
+        using (var r = uptimeCmd.ExecuteReader())
+        {
+            if (r.Read()) { dbVersion = r.GetString(0); dbUpdatedAt = r.IsDBNull(1) ? null : r.GetString(1); }
+        }
+
+        await WriteJsonAsync(resp, 200, new
+        {
+            agents = new
+            {
+                summary.Total, summary.Installed, summary.Partial, summary.Missing,
+                summary.Busy, idle = summary.Total - summary.Busy
+            },
+            events_total = eventsTotal,
+            runtime = new
+            {
+                port = AppConfig.HttpPort,
+                uptime_sec = (int)(DateTime.Now - _startTime).TotalSeconds,
+                db_schema_version = dbVersion,
+                db_updated_at = dbUpdatedAt
+            }
+        });
+    }
+
+    private static async Task HandleEvents(HttpListenerRequest req, HttpListenerResponse resp)
+    {
+        var qs = req.QueryString;
+        string? type = qs["type"];
+        string? limitStr = qs["limit"];
+        int limit = int.TryParse(limitStr, out var l) ? Math.Clamp(l, 1, 500) : 100;
+
+        using var conn = Database.GetConnection();
+        using var cmd = conn.CreateCommand();
+        if (!string.IsNullOrEmpty(type))
+        {
+            cmd.CommandText = "SELECT * FROM status_events WHERE event_type = $type ORDER BY id DESC LIMIT $limit";
+            cmd.Parameters.AddWithValue("$type", type);
+        }
+        else
+        {
+            cmd.CommandText = "SELECT * FROM status_events ORDER BY id DESC LIMIT $limit";
+        }
+        cmd.Parameters.AddWithValue("$limit", limit);
+        var list = ReadEvents(cmd);
+        await WriteJsonAsync(resp, 200, new { count = list.Count, events = list });
+    }
+
+    private static async Task HandleEventsStats(HttpListenerResponse resp)
+    {
+        using var conn = Database.GetConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT event_type, COUNT(*) as cnt FROM status_events
+            GROUP BY event_type ORDER BY cnt DESC
+            """;
+        var breakdown = new List<object>();
+        using (var r = cmd.ExecuteReader())
+        {
+            while (r.Read())
+                breakdown.Add(new { event_type = r.GetString(0), count = r.GetInt32(1) });
+        }
+
+        using var totalCmd = conn.CreateCommand();
+        totalCmd.CommandText = "SELECT COUNT(*) FROM status_events";
+        int total = Convert.ToInt32(totalCmd.ExecuteScalar());
+
+        await WriteJsonAsync(resp, 200, new { total, breakdown });
+    }
+
+    private static async Task HandleDepends(HttpListenerRequest req, string name, HttpListenerResponse resp)
+    {
+        var existing = AgentRepository.GetByName(name);
+        if (existing == null) { await WriteJsonAsync(resp, 404, new { error = $"agent '{name}' not found" }); return; }
+
+        var body = await ReadBodyAsync(req);
+        List<string>? depends = null;
+        try
+        {
+            var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("depends_on", out var arr))
+            {
+                depends = arr.EnumerateArray().Select(e => e.GetString() ?? "").Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+            }
+        }
+        catch { await WriteJsonAsync(resp, 400, new { error = "Invalid JSON" }); return; }
+
+        depends ??= new List<string>();
+
+        // 验证：所有 depends_on 里的 agent 必须存在（软检查，不硬拦）
+        var missing = depends.Where(d => AgentRepository.GetByName(d) == null).ToList();
+
+        existing.DependsOn = depends;
+        AgentRepository.Update(existing);
+        EventBroadcaster.Broadcast("depends", name, new { depends_on = depends });
+
+        await WriteJsonAsync(resp, 200, new
+        {
+            ok = true,
+            agent_name = name,
+            depends_on = depends,
+            missing_agents = missing
+        });
+    }
+
+    // ============================================================
     // 工具方法
     // ============================================================
+
+    private static List<object> ReadEvents(System.Data.Common.DbCommand cmd)
+    {
+        var list = new List<object>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new
+            {
+                id = reader.GetInt32(0),
+                agent_name = reader.GetString(1),
+                event_type = reader.GetString(2),
+                event_data = reader.IsDBNull(3) ? null : reader.GetString(3),
+                created_at = reader.IsDBNull(4) ? null : reader.GetString(4)
+            });
+        }
+        return list;
+    }
 
     private static async Task<string> ReadBodyAsync(HttpListenerRequest req)
     {
@@ -335,7 +470,6 @@ public class HttpServer : IDisposable
         return await reader.ReadToEndAsync();
     }
 
-    // 统一 JSON options — snake_case（和 Node backend API 对齐）
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = true,

@@ -149,6 +149,40 @@ public static class FileInstaller
 
     public record ScanAllResult(int Total, int Installed, int Partial, int Missing, List<string> Updated);
 
+    /// <summary>
+    /// 单 agent 扫描（修复 Bug：之前 POST /agents/{name}/scan 扫了全量 11 条，
+    /// 现在只扫指定 name，O(1) 而非 O(N)）
+    /// </summary>
+    public record ScanOneResult(bool Ok, string AgentName, string OldStatus, string NewStatus, bool Updated);
+
+    public static ScanOneResult ScanOne(string agentName)
+    {
+        var a = AgentRepository.GetByName(agentName);
+        if (a == null)
+            return new ScanOneResult(false, agentName, "", "", false);
+
+        var agentMdDest = Path.Combine(AppConfig.AgentsDir, $"{agentName}.md");
+        var skillMdDest = Path.Combine(AppConfig.SkillsDir, agentName, "SKILL.md");
+
+        bool hasAgent = File.Exists(agentMdDest);
+        bool hasSkill = File.Exists(skillMdDest);
+
+        string newStatus;
+        if (hasAgent && hasSkill) newStatus = "installed";
+        else if (hasAgent || hasSkill) newStatus = "partial";
+        else newStatus = "not-installed";
+
+        bool updated = newStatus != a.InstallStatus;
+        if (updated)
+        {
+            AgentRepository.UpdateInstallStatus(agentName, newStatus);
+            EventBroadcaster.Broadcast("scan", agentName,
+                new { old = a.InstallStatus, @new = newStatus });
+        }
+
+        return new ScanOneResult(true, agentName, a.InstallStatus, newStatus, updated);
+    }
+
     public static ScanAllResult ScanAll()
     {
         var agents = AgentRepository.GetAll();

@@ -1,35 +1,68 @@
+using System.ComponentModel;
 using System.Windows;
-using TeamWorkbench.Data;
+using TeamWorkbench.ViewModels;
 
 namespace TeamWorkbench;
 
 public partial class MainWindow : Window
 {
+    private OrbWindow? _orbWindow;
+
     public MainWindow()
     {
         InitializeComponent();
+        DataContext = new MainViewModel();
 
-        // Phase 1 核心：SQLite 初始化
-        try
+        // 顶栏按钮点击 → 显示/隐藏浮动球
+        OrbToggleBtn.Click += (s, e) => ToggleOrb();
+    }
+
+    /// <summary>
+    /// 视觉树构建完成后：Load DB + 订阅 VM 变化
+    /// </summary>
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+
+        if (DataContext is not MainViewModel vm) return;
+
+        vm.LoadData();
+
+        // 订阅 SelectedAgent 变化 → 同步更新浮动球状态
+        vm.PropertyChanged += (s, args) =>
         {
-            Database.Initialize();
+            if (args.PropertyName == nameof(MainViewModel.SelectedAgent))
+                SyncOrbStatus();
+        };
 
-            // 验证 3 张表存在
-            using var conn = Database.GetConnection();
-            var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;";
-            var tables = new List<string>();
-            using (var reader = cmd.ExecuteReader())
-            {
-                while (reader.Read()) tables.Add(reader.GetString(0));
-            }
+        // Phase 5: 点 X 关闭 → 藏托盘而非退出
+        Closing += (s, args) =>
+        {
+            args.Cancel = true;
+            Hide();
+        };
+    }
 
-            DbStatus.Text = $"✅ SQLite 就绪 · 3 张表已建（{string.Join(", ", tables)}）\n" +
-                           $"📁 DB: {Database.DbPath}";
+    private void ToggleOrb()
+    {
+        if (_orbWindow == null || !_orbWindow.IsVisible)
+        {
+            _orbWindow ??= new OrbWindow();
+            SyncOrbStatus();
+            _orbWindow.Show();
         }
-        catch (Exception ex)
+        else
         {
-            DbStatus.Text = $"❌ SQLite 初始化失败: {ex.Message}";
+            _orbWindow.Hide();
+        }
+    }
+
+    private void SyncOrbStatus()
+    {
+        if (_orbWindow == null) return;
+        if (DataContext is MainViewModel vm && vm.SelectedAgent != null)
+        {
+            _orbWindow.SetAgentStatus(vm.SelectedAgent.InstallStatus, vm.SelectedAgent.RuntimeStatus);
         }
     }
 }

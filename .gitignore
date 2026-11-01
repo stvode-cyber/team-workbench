@@ -28,3 +28,12 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# .NET / C# WPF
+TeamWorkbench/bin/
+TeamWorkbench/obj/
+TeamWorkbench/Data/data.db
+TeamWorkbench/Data/data.db-shm
+TeamWorkbench/Data/data.db-wal
+_dbcheck/
+_mutexcheck/

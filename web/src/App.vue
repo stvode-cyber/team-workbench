@@ -92,6 +92,22 @@
         </div>
       </div>
     </div>
+
+    <!-- QQ 风格悬浮球 + 浮窗面板 -->
+    <FloatingOrb
+      :summary="summary"
+      @toggle="floatOpen = !floatOpen"
+    />
+    <FloatPanel
+      v-if="floatOpen"
+      :agents="agents"
+      :summary="summary"
+      v-model="floatSelected"
+      @select="selected = $event"
+      @close="floatOpen = false"
+      @scan-all="runScanAll"
+      @install-all="runInstallAll"
+    />
   </div>
 </template>
 
@@ -102,6 +118,12 @@ import { connectWs, closeWs } from "./api/ws";
 import AgentSidebar from "./components/AgentSidebar.vue";
 import AgentDetail from "./components/AgentDetail.vue";
 import AgentForm from "./components/AgentForm.vue";
+import FloatingOrb from "./components/FloatingOrb.vue";
+import FloatPanel from "./components/FloatPanel.vue";
+
+// QQ 悬浮球面板状态
+const floatOpen = ref(false);
+const floatSelected = ref<Agent | null>(null);
 
 const agents = ref<Agent[]>([]);
 const summary = ref<AgentListResponse["summary"] | null>(null);

@@ -4,13 +4,18 @@ using Microsoft.Data.Sqlite;
 namespace TeamWorkbench.Data;
 
 /// <summary>
-/// Phase 1: SQLite DB 初始化 + 3 表 schema
-/// 对应后端 Node 版本的 db.ts 幂等建表
+/// SQLite DB 初始化 + schema + 幂等列级迁移
+/// 对应 Node 后端 db.ts —— 列级完全镜像
 /// </summary>
 public static class Database
 {
     public static string DbPath { get; private set; } = "";
+    public const int SchemaVersion = 2;
 
+    /// <summary>
+    /// 启动初始化：幂等建表 + 列级 PRAGMA 迁移 + 版本记录
+    /// 绝不删库。
+    /// </summary>
     public static void Initialize()
     {
         // DB 位置：%APPDATA%\TeamWorkbench\data.db
@@ -22,7 +27,7 @@ public static class Database
         using var conn = new SqliteConnection($"Data Source={DbPath}");
         conn.Open();
 
-        // 3 张表（幂等建表，CREATE TABLE IF NOT EXISTS）
+        // ========== 1. 幂等建表 ==========
         var cmd = conn.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS agents (
@@ -30,19 +35,18 @@ public static class Database
                 name TEXT NOT NULL UNIQUE,
                 cn_name TEXT NOT NULL,
                 priority TEXT NOT NULL CHECK(priority IN ('P0','P1')),
-                emoji TEXT,
-                desc TEXT,
-                role TEXT,
-                how_to_trigger_manual TEXT,
-                how_to_trigger_auto TEXT,
+                emoji TEXT DEFAULT '🤖',
+                "desc" TEXT DEFAULT '',
+                role TEXT DEFAULT '',
+                how_to_trigger TEXT,
                 process TEXT,
                 boundary TEXT,
                 tools TEXT,
+                depends_on TEXT,
                 install_status TEXT DEFAULT 'not-installed',
                 install_date TEXT,
                 runtime_status TEXT DEFAULT 'idle' CHECK(runtime_status IN ('idle','busy')),
                 last_seen TEXT,
-                depends_on TEXT,
                 updated_at TEXT
             );
 
@@ -69,11 +73,61 @@ public static class Database
             """;
         cmd.ExecuteNonQuery();
 
-        // 记录版本
-        cmd.CommandText = "INSERT OR REPLACE INTO schema_version VALUES (1, datetime('now'));";
+        // ========== 2. 列级 PRAGMA 迁移：agents 表缺啥补啥 ==========
+        MigrateAgentsTable(conn);
+
+        // ========== 3. 记录版本 ==========
+        cmd.CommandText = $"INSERT OR REPLACE INTO schema_version VALUES ({SchemaVersion}, datetime('now'));";
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// PRAGMA table_info + ALTER TABLE ADD COLUMN
+    /// SQLite ALTER TABLE 限制：不能加 PRIMARY KEY / UNIQUE
+    /// 我们的列全是普通 TEXT，没问题
+    /// </summary>
+    private static void MigrateAgentsTable(SqliteConnection conn)
+    {
+        // agents 表目标列清单（和 Node db.ts 完全对齐）
+        string[][] targetColumns = [
+            ["emoji",          "TEXT DEFAULT '🤖'"],
+            ["desc",           "TEXT DEFAULT ''"],
+            ["role",           "TEXT DEFAULT ''"],
+            ["how_to_trigger", "TEXT"],
+            ["process",        "TEXT"],
+            ["boundary",       "TEXT"],
+            ["tools",          "TEXT"],
+            ["depends_on",     "TEXT"],
+            ["install_status", "TEXT DEFAULT 'not-installed'"],
+            ["install_date",   "TEXT"],
+            ["runtime_status", "TEXT DEFAULT 'idle'"],
+            ["last_seen",      "TEXT"],
+            ["updated_at",     "TEXT"],
+        ];
+
+        // 读出现有列
+        var existing = new HashSet<string>();
+        using (var pragmaCmd = conn.CreateCommand())
+        {
+            pragmaCmd.CommandText = "PRAGMA table_info(agents);";
+            using var reader = pragmaCmd.ExecuteReader();
+            while (reader.Read()) existing.Add(reader.GetString(1)); // name
+        }
+
+        foreach (var col in targetColumns)
+        {
+            if (!existing.Contains(col[0]))
+            {
+                using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE agents ADD COLUMN {col[0]} {col[1]};";
+                alterCmd.ExecuteNonQuery();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 拿一个新连接（调用方负责 using）
+    /// </summary>
     public static SqliteConnection GetConnection()
     {
         var conn = new SqliteConnection($"Data Source={DbPath}");

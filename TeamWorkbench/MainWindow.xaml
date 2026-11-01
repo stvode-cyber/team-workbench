@@ -1,23 +1,259 @@
 <Window x:Class="TeamWorkbench.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="🤖 AI 专岗员工面板 v3.0 (Phase 1 · C# WPF)" Height="600" Width="1200"
+        xmlns:vms="clr-namespace:TeamWorkbench.ViewModels"
+        Title="🤖 AI 专岗员工面板 · v3.0 WPF 原生"
+        Height="680" Width="1280"
+        MinHeight="500" MinWidth="900"
         WindowStartupLocation="CenterScreen"
-        Background="#1a1a2e">
+        Background="{StaticResource BgDeepBrush}"
+        Style="{StaticResource MainWindowBg}">
+
+    <!-- 合并资源字典（深色主题令牌 + 控件样式）-->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/Theme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ========== 左侧 ListBox ItemTemplate ========== -->
+            <DataTemplate x:Key="AgentListItemTemplate" DataType="vms:AgentViewModel">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding Emoji}" FontSize="18" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding CnName}" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,1,0,0"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding StatusLight}" FontSize="16" VerticalAlignment="Center"/>
+                </Grid>
+            </DataTemplate>
+
+            <!-- ========== 右侧 ContentTemplate：6 Section 详情 ========== -->
+            <DataTemplate x:Key="AgentDetailTemplate" DataType="vms:AgentViewModel">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0">
+                    <StackPanel Margin="20,16">
+
+                        <!-- Section 0: Header（emoji + cn + priority chip）-->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding Emoji}" FontSize="48" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding CnName}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                    <Border Margin="8,0,0,0" VerticalAlignment="Center"
+                                        Background="{StaticResource AccentBrush}" CornerRadius="10" Padding="10,3">
+                                        <TextBlock Text="{Binding Priority}" Foreground="White" FontSize="12" FontWeight="Bold"/>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Section 1: 一句话说明 -->
+                        <Border Style="{StaticResource SectionHeader}">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="📌 一句话说明"/>
+                        </Border>
+                        <TextBlock Style="{StaticResource DetailContent}" Text="{Binding Desc}"/>
+
+                        <!-- Section 2: 什么时候调我（手动触发词）-->
+                        <Border Style="{StaticResource SectionHeader}" Margin="0,16,0,0">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="🎯 什么时候调我"/>
+                        </Border>
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,6">手动触发词：</TextBlock>
+                        <ItemsControl ItemsSource="{Binding ManualTriggers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="  · " Foreground="{StaticResource AccentBlueBrush}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <!-- 用 ListBox 更友好：直接显示每个触发词 -->
+                        <ListBox ItemsSource="{Binding ManualTriggers}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionMode="Single" IsHitTestVisible="False"
+                                 Padding="0">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="4,2"/>
+                                    <Setter Property="Margin" Value="4,1"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <ContentPresenter/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <TextBlock Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,10,0,4">自动触发场景：</TextBlock>
+                        <ListBox ItemsSource="{Binding AutoTriggers}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{StaticResource AccentBlueBrush}" FontSize="12"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionMode="Single" IsHitTestVisible="False" Padding="0">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="4,2"/>
+                                    <Setter Property="Margin" Value="4,1"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <ContentPresenter/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <!-- Section 3: 工作流程 -->
+                        <Border Style="{StaticResource SectionHeader}" Margin="0,16,0,0">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="⚙️ 工作流程"/>
+                        </Border>
+                        <ListBox ItemsSource="{Binding Process}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionMode="Single" IsHitTestVisible="False" Padding="0">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="4,3"/>
+                                    <Setter Property="Margin" Value="2,1"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="▸ " Foreground="{StaticResource AccentBrush}"/>
+                                                    <ContentPresenter/>
+                                                </StackPanel>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <!-- Section 4: 硬性边界 -->
+                        <Border Style="{StaticResource SectionHeader}" Margin="0,16,0,0">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="🚫 硬性边界"/>
+                        </Border>
+                        <ListBox ItemsSource="{Binding Boundary}"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="{StaticResource StatusRedBrush}" FontSize="13"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 SelectionMode="Single" IsHitTestVisible="False" Padding="0">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="4,3"/>
+                                    <Setter Property="Margin" Value="2,1"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="⛔ " Foreground="{StaticResource StatusRedBrush}"/>
+                                                    <ContentPresenter/>
+                                                </StackPanel>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+
+                        <!-- Section 5: 角色定义 -->
+                        <Border Style="{StaticResource SectionHeader}" Margin="0,16,0,0">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="📝 角色定义"/>
+                        </Border>
+                        <TextBlock Style="{StaticResource DetailContent}" Text="{Binding Role}"/>
+
+                        <!-- Section 6: 拥有工具 -->
+                        <Border Style="{StaticResource SectionHeader}" Margin="0,16,0,0">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="🛠️ 拥有工具"/>
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Tools}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource BgLightBrush}" CornerRadius="4" Padding="8,3" Margin="4,2">
+                                        <TextBlock Text="{Binding}" Foreground="{StaticResource AccentBlueBrush}" FontSize="12"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </DataTemplate>
+
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <!-- ========== 主布局：顶栏 + 左 ListBox + 右 ContentControl ========== -->
     <Grid>
-        <!-- Phase 1 标题区 -->
-        <Border Background="#16213e" Padding="20" Margin="0">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="🤖 AI 专岗员工面板"
-                           FontSize="28" FontWeight="Bold" Foreground="White"
-                           HorizontalAlignment="Center"/>
-                <TextBlock Text="C# WPF · Phase 1 Hello World + SQLite"
-                           FontSize="14" Foreground="#8892b0" Margin="0,8,0,0"
-                           HorizontalAlignment="Center"/>
-                <TextBlock x:Name="DbStatus" Text=""
-                           FontSize="12" Foreground="#64c8ff" Margin="0,12,0,0"
-                           HorizontalAlignment="Center"/>
-            </StackPanel>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="56"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 顶栏（跨两列）-->
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{StaticResource BgMidBrush}" Padding="16,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="🤖 AI 专岗员工面板" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text=" · v3.0 C# WPF 原生" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="8,4,0,0"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource AccentBlueBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Button x:Name="OrbToggleBtn" Grid.Column="2"
+                        Content="🔵" Width="36" Height="32"
+                        Background="{StaticResource BgLightBrush}" BorderThickness="0"
+                        Foreground="White" FontSize="16"
+                        Cursor="Hand" Padding="0" Margin="0,0,0,0"/>
+            </Grid>
         </Border>
+
+        <!-- 左侧：Agent 花名册 ListBox -->
+        <ListBox Grid.Row="1" Grid.Column="0"
+                 Style="{StaticResource AgentListBox}"
+                 ItemsSource="{Binding Agents}"
+                 SelectedItem="{Binding SelectedAgent}"
+                 ItemTemplate="{StaticResource AgentListItemTemplate}"/>
+
+        <!-- 右侧：详情 ContentControl -->
+        <GridSplitter Grid.Row="1" Grid.Column="0" Width="3" HorizontalAlignment="Right"
+                      Background="{StaticResource BgLightBrush}"/>
+
+        <ContentControl Grid.Row="1" Grid.Column="1"
+                        Content="{Binding SelectedAgent}"
+                        ContentTemplate="{StaticResource AgentDetailTemplate}"/>
+
     </Grid>
 </Window>

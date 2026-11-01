@@ -1,0 +1,113 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ========== 颜色令牌 ========== -->
+    <Color x:Key="BgDeep">#1a1a2e</Color>
+    <Color x:Key="BgMid">#16213e</Color>
+    <Color x:Key="BgLight">#0f3460</Color>
+    <Color x:Key="Accent">#e94560</Color>
+    <Color x:Key="AccentBlue">#64c8ff</Color>
+    <Color x:Key="TextPrimary">#ffffff</Color>
+    <Color x:Key="TextSecondary">#8892b0</Color>
+    <Color x:Key="TextDim">#4a5568</Color>
+    <Color x:Key="StatusGreen">#48bb78</Color>
+    <Color x:Key="StatusYellow">#ecc94b</Color>
+    <Color x:Key="StatusRed">#f56565</Color>
+
+    <!-- SolidColorBrush 包装（WPF 用 Brush）-->
+    <SolidColorBrush x:Key="BgDeepBrush" Color="{StaticResource BgDeep}"/>
+    <SolidColorBrush x:Key="BgMidBrush" Color="{StaticResource BgMid}"/>
+    <SolidColorBrush x:Key="BgLightBrush" Color="{StaticResource BgLight}"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}"/>
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}"/>
+    <SolidColorBrush x:Key="TextDimBrush" Color="{StaticResource TextDim}"/>
+    <SolidColorBrush x:Key="StatusGreenBrush" Color="{StaticResource StatusGreen}"/>
+    <SolidColorBrush x:Key="StatusYellowBrush" Color="{StaticResource StatusYellow}"/>
+    <SolidColorBrush x:Key="StatusRedBrush" Color="{StaticResource StatusRed}"/>
+
+    <!-- ========== 尺寸/间距令牌 ========== -->
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontXs">11</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontSm">13</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontMd">15</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontLg">18</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="FontXl">24</sys:Double>
+    <sys:Double xmlns:sys="clr-namespace:System;assembly=mscorlib" x:Key="Font2Xl">32</sys:Double>
+
+    <!-- ========== 控件样式 ========== -->
+
+    <!-- 主窗口背景 -->
+    <Style x:Key="MainWindowBg" TargetType="Window">
+        <Setter Property="Background" Value="{StaticResource BgDeepBrush}"/>
+    </Style>
+
+    <!-- 左侧 ListBox 样式 -->
+    <Style x:Key="AgentListBox" TargetType="ListBox">
+        <Setter Property="Background" Value="{StaticResource BgMidBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+
+    <!-- ListBoxItem 默认样式 -->
+    <Style TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="8,10"/>
+        <Setter Property="Margin" Value="2,1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource BgLightBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Section 标题（详情区）-->
+    <Style x:Key="SectionHeader" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+
+    <!-- 详情区 Section 内 TextBlock -->
+    <Style x:Key="SectionHeaderText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontSm}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
+    <!-- 详情内容文本 -->
+    <Style x:Key="DetailContent" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="{StaticResource FontMd}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="0,4"/>
+    </Style>
+
+    <!-- 标签 Chip（P0/P1 等） -->
+    <Style x:Key="ChipP0" TargetType="Border">
+        <Setter Property="Background" Value="#e94560"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="8,2"/>
+    </Style>
+    <Style x:Key="ChipP1" TargetType="Border">
+        <Setter Property="Background" Value="#64c8ff"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="8,2"/>
+    </Style>
+
+</ResourceDictionary>

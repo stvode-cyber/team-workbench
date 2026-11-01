@@ -71,7 +71,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Phase 2 新增：打开调用链画布窗口
+    /// Phase 3 新增：打开调用链画布窗口
     /// 用 ShowDialog 模态——防止在画布打开时主窗口触发事件
     /// </summary>
     private void OpenCallChain()
@@ -79,5 +79,63 @@ public partial class MainWindow : Window
         var win = new CallChainWindow();
         win.Owner = this;
         win.ShowDialog();
+    }
+
+    /// <summary>
+    /// Phase 3 新增：打开安装对话框
+    /// </summary>
+    private void InstallBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || vm.SelectedAgent == null) return;
+
+        var dlg = new InstallDialog(vm.SelectedAgent.Name)
+        {
+            Owner = this,
+        };
+        dlg.ShowDialog();
+
+        // 关闭后刷新生效
+        vm.LoadData();
+    }
+
+    /// <summary>
+    /// Phase 3 新增：打开卸载对话框（复用 PowerShellRunner，自定义 uninstall 脚本路径）
+    /// 先检查是否已装——未装时直接提示
+    /// </summary>
+    private void UninstallBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || vm.SelectedAgent == null) return;
+        if (vm.SelectedAgent.InstallStatus != "installed")
+        {
+            MessageBox.Show(
+                $"{vm.SelectedAgent.CnName} 尚未安装，无需卸载。",
+                "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"确定要卸载 {vm.SelectedAgent.CnName} 吗？",
+            "确认卸载", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes) return;
+
+        // 卸载 = 直接删文件
+        var agentsDir = TeamWorkbench.Config.AppConfig.AgentsDir;
+        var skillsDir = TeamWorkbench.Config.AppConfig.SkillsDir;
+        var agentMd = System.IO.Path.Combine(agentsDir, $"{vm.SelectedAgent.Name}.md");
+        var skillDir = System.IO.Path.Combine(skillsDir, vm.SelectedAgent.Name);
+
+        try
+        {
+            if (System.IO.File.Exists(agentMd)) System.IO.File.Delete(agentMd);
+            if (System.IO.Directory.Exists(skillDir)) System.IO.Directory.Delete(skillDir, true);
+            MessageBox.Show("✅ 卸载完成！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"❌ 卸载失败：{ex.Message}", "错误",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        vm.LoadData();
     }
 }

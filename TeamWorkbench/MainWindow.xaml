@@ -201,6 +201,36 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <!-- Section 7: 安装操作（Phase 3 新增）-->
+                        <Border Style="{StaticResource SectionHeader}" Margin="0,16,0,0">
+                            <TextBlock Style="{StaticResource SectionHeaderText}" Text="📦 安装"/>
+                        </Border>
+                        <Grid Margin="0,6,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding StatusLight}" FontSize="20" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding InstallStatus}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button x:Name="InstallBtn"
+                                        Content="📦 安装" Height="28"
+                                        Background="{StaticResource AccentBlueBrush}"
+                                        Foreground="White" BorderThickness="0"
+                                        FontSize="12" FontWeight="Bold"
+                                        Cursor="Hand" Padding="12,0"
+                                        Click="InstallBtn_Click"/>
+                                <Button x:Name="UninstallBtn"
+                                        Content="🔧 卸载" Height="28"
+                                        Background="{StaticResource BgLightBrush}"
+                                        Foreground="{StaticResource TextSecondaryBrush}" BorderThickness="0"
+                                        FontSize="12" Cursor="Hand" Padding="12,0" Margin="8,0,0,0"
+                                        Click="UninstallBtn_Click"/>
+                            </StackPanel>
+                        </Grid>
+
                     </StackPanel>
                 </ScrollViewer>
             </DataTemplate>

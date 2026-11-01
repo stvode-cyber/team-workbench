@@ -24,4 +24,12 @@ public static class AppConfig
     public static readonly string SourceDirRoot = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         "Desktop", "Agent", "团队工作台", "专岗工作台", "02_AGENTS");
+
+    // scripts 目录（install-single-agent.ps1 所在）
+    public static readonly string ScriptsDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        "Desktop", "Agent", "团队工作台", "scripts");
+
+    public static string InstallSingleAgentScript =>
+        Path.Combine(ScriptsDir, "install-single-agent.ps1");
 }

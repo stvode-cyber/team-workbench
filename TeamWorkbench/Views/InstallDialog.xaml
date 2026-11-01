@@ -1,0 +1,77 @@
+<Window x:Class="TeamWorkbench.Views.InstallDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="📦 安装 Agent"
+        Height="480" Width="640"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgDeepBrush}"
+        Style="{StaticResource MainWindowBg}">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Styles/Theme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <Style x:Key="DialogToolBtn" TargetType="Button">
+                <Setter Property="Background" Value="{StaticResource BgLightBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                <Setter Property="Padding" Value="14,6"/>
+                <Setter Property="Margin" Value="0,0,8,0"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="32"/>
+        </Grid.RowDefinitions>
+
+        <!-- 顶栏 -->
+        <Border Grid.Row="0" Background="{StaticResource BgMidBrush}" Padding="14,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           x:Name="TitleText"
+                           Text="📦 安装中..."
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           FontSize="14" FontWeight="Bold"
+                           VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="StopBtn" Content="⛔ 停止" Style="{StaticResource DialogToolBtn}"
+                            Click="StopBtn_Click" Visibility="Collapsed"/>
+                    <Button x:Name="CloseBtn" Content="✕ 关闭" Style="{StaticResource DialogToolBtn}"
+                            Click="CloseBtn_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- RichTextBox 输出 -->
+        <RichTextBox Grid.Row="1"
+                     x:Name="TerminalOutput"
+                     Background="{StaticResource BgDeepBrush}"
+                     Foreground="{StaticResource TextPrimaryBrush}"
+                     FontFamily="Consolas" FontSize="12"
+                     IsReadOnly="True"
+                     BorderThickness="0"
+                     Padding="16,12"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"/>
+
+        <!-- 底部状态 -->
+        <Border Grid.Row="2" Background="{StaticResource BgMidBrush}" Padding="14,0">
+            <TextBlock x:Name="StatusText"
+                       Text="⏳ 准备中..."
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       FontSize="12" VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+</Window>

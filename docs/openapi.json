@@ -1,0 +1,683 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI 专岗员工工作台 REST API",
+    "version": "v3.0-rest-extend",
+    "description": "HttpListener 自托管 REST API，snake_case JSON 响应。\n\n完整 18 条 REST + 1 条 WebSocket /events。\n\n数据模型见 TeamWorkbench/Models/Agent.cs，\n路由分发见 TeamWorkbench/Services/HttpServer.cs。",
+    "contact": { "name": "TeamWorkbench Agent" }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001",
+      "description": "本地开发服务器"
+    }
+  ],
+  "tags": [
+    { "name": "Health", "description": "健康检查" },
+    { "name": "Stats", "description": "聚合统计" },
+    { "name": "Agents", "description": "Agent CRUD + 安装管理" },
+    { "name": "Events", "description": "事件查询 + 事件类型分布" },
+    { "name": "WebSocket", "description": "实时推送（EventBroadcaster）" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "健康检查",
+        "description": "快速检查服务是否存活，返回版本号、DB 数量和运行时长。",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthResponse" },
+                "example": { "ok": true, "version": "v3.0-websocket-live", "db_agents": 11, "uptime_sec": 42 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "tags": ["Stats"],
+        "summary": "聚合统计",
+        "description": "Agent 聚合 + 事件总数 + 运行信息（端口、uptime、DB schema 版本）。",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StatsResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "全量事件流（可选筛选）",
+        "description": "从 status_events 表查事件，按 id DESC 倒序，默认 limit=100，最大 500。",
+        "parameters": [
+          { "$ref": "#/components/parameters/eventType" },
+          { "$ref": "#/components/parameters/limit" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer", "description": "返回条数" },
+                    "events": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/StatusEvent" }
+                    }
+                  }
+                },
+                "example": {
+                  "count": 3,
+                  "events": [
+                    { "id": 16, "agent_name": "ledger-keeper", "event_type": "runtime", "event_data": "{\"new_status\":\"busy\"}", "created_at": "2026-11-01 09:05:12" },
+                    { "id": 15, "agent_name": "drize-engineer", "event_type": "scan", "event_data": "{\"old\":\"not-installed\",\"new\":\"installed\"}", "created_at": "2026-11-01 09:02:36" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "x-websocket": {
+        "summary": "WebSocket 实时推送（同一 /events 路径，必须发 WebSocket Upgrade）",
+        "description": "EventBroadcaster.Broadcast(eventType, agentName, eventData) → JSON payload → 推给所有已连接的 WebSocket 客户端。HttpServer 根据 req.IsWebSocketRequest 分流：REST 走 GET /events 查询历史，WS 走 WebSocketServer.HandleAsync 订阅实时推送。",
+        "client_messages": {},
+        "server_messages": {
+          "type": "object",
+          "properties": {
+            "event_type": { "type": "string", "enum": ["install", "uninstall", "scan", "runtime", "depends", "create", "delete"] },
+            "agent_name": { "type": "string" },
+            "event_data": { "type": ["object", "null"], "description": "可选，事件相关的额外数据（如 old_status/new_status/depends_on 列表）" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        },
+        "example": {
+          "event_type": "scan",
+          "agent_name": "drize-engineer",
+          "event_data": { "old": "not-installed", "new": "installed" },
+          "timestamp": "2026-11-01T09:02:36.123Z"
+        }
+      }
+    },
+    "/events/stats": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "事件类型分布",
+        "description": "GROUP BY event_type 统计每种事件的条数，按 count DESC 排序。",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": { "type": "integer", "description": "事件总数" },
+                    "breakdown": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event_type": { "type": "string" },
+                          "count": { "type": "integer" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "total": 16,
+                  "breakdown": [
+                    { "event_type": "scan", "count": 11 },
+                    { "event_type": "runtime", "count": 4 },
+                    { "event_type": "install", "count": 1 }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents": {
+      "get": {
+        "tags": ["Agents"],
+        "summary": "全量 Agent（可加 query 筛选）",
+        "description": "返回所有 11 个 agent + 聚合 summary。支持 3 个可选 query 参数在内存中过滤（数据量小，不需要 SQL WHERE）。",
+        "parameters": [
+          { "$ref": "#/components/parameters/priority" },
+          { "$ref": "#/components/parameters/installed" },
+          { "$ref": "#/components/parameters/runtime" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": { "type": "array", "items": { "$ref": "#/components/schemas/Agent" } },
+                    "summary": { "$ref": "#/components/schemas/AgentSummary" },
+                    "count": { "type": "integer", "description": "过滤后的条数（加了 query 筛选才可能 < total）" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Agents"],
+        "summary": "创建新 Agent",
+        "description": "插入新 agent 到 DB，**必须通过 5 条治理门槛**（硬冲突/软冲突/Skill 完整性/优先级/kebab-case 命名），否则返回 422 + GateCheck 详情。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AgentCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Agent" } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "422": { "$ref": "#/components/responses/GateCheckFailure" }
+        }
+      }
+    },
+    "/agents/{name}": {
+      "get": {
+        "tags": ["Agents"],
+        "summary": "查单个 Agent",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Agent" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Agents"],
+        "summary": "更新 Agent",
+        "description": "更新整个 Agent 对象，name 字段**从 URL path 取**，body 里的 name 会被覆盖。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AgentUpdateRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Agent" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Agents"],
+        "summary": "删除 Agent",
+        "description": "从 DB 删除指定 agent，同时广播 delete 事件（EventBroadcaster）。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "name": { "type": "string" } } } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/agents/{name}/scan": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "扫单个 Agent 安装状态",
+        "description": "**P0 Bug fix**: 只扫指定 name 的 agent（O(1)），不扫全量。检查 ~/.trae-cn/agents/{name}.md + ~/.trae-cn/skills/{name}/SKILL.md 是否存在，三种状态 installed/partial/not-installed。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agent": { "$ref": "#/components/schemas/Agent" },
+                    "scan": { "$ref": "#/components/schemas/ScanOneResult" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/agents/{name}/status": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "改 runtime_status（idle / busy）",
+        "description": "更新 runtime_status 字段（只允许 idle 或 busy），广播 runtime 事件（WPF 主窗口自动刷新）。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["runtime_status"],
+                "properties": {
+                  "runtime_status": { "type": "string", "enum": ["idle", "busy"] }
+                }
+              },
+              "example": { "runtime_status": "busy" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "runtime_status": { "type": "string" } } }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/agents/{name}/depends": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "设置依赖关系（depends_on）",
+        "description": "覆盖写 Agent.DependsOn 列表。软检查：depends_on 里引用的 agent 是否在 DB 里存在，不存在的 agent 名会放在 missing_agents 字段里返回但不硬拦。\n\n调用链画布（CallChainWindow）保存按钮后续可以调这个端点，替代面板里手动写 DB。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["depends_on"],
+                "properties": {
+                  "depends_on": {
+                    "type": "array",
+                    "description": "kebab-case agent 名列表",
+                    "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+                  }
+                }
+              },
+              "example": { "depends_on": ["competitor-surveyor", "project-taker"] }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "agent_name": { "type": "string" },
+                    "depends_on": { "type": "array", "items": { "type": "string" } },
+                    "missing_agents": { "type": "array", "items": { "type": "string" }, "description": "软检查：depends_on 里引用但 DB 不存在的 agent 名" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/agents/{name}/install": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "安装单个 Agent（C# 同步 Copy）",
+        "description": "**C# 同步安装**（非 PowerShell 子进程）：从 02_AGENTS/{name}/ 下找 agent.md + SKILL.md → Copy 到 ~/.trae-cn/agents/ 和 ~/.trae-cn/skills/{name}/。\n\n**注意**：面板里 📦安装按钮走的是 PowerShellRunner（外部 .ps1），跟这个端点是两条路径。REST 端点会触发 EventBroadcaster（WPF 自动刷新）。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InstallResult" } } }
+          },
+          "400": {
+            "description": "Install 失败（源目录找不到 / 前置校验不通过）",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "ok": { "type": "boolean" }, "errors": { "type": "array", "items": { "type": "string" } } } } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/agents/{name}/uninstall": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "卸载单个 Agent",
+        "description": "删除 ~/.trae-cn/agents/{name}.md + ~/.trae-cn/skills/{name}/SKILL.md，DB 状态改为 not-installed。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UninstallResult" } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/agents/{name}/events": {
+      "get": {
+        "tags": ["Agents", "Events"],
+        "summary": "查单个 Agent 的事件（最近 50 条）",
+        "description": "从 status_events 表查 agent_name=name 的事件，按 id DESC 倒序，固定 LIMIT 50。",
+        "parameters": [{ "$ref": "#/components/parameters/agentName" }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/StatusEvent" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/scan-all": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "全量扫描 11 个 Agent 安装状态",
+        "description": "遍历 DB 里所有 agent 检查两个文件是否存在，更新 DB + 广播每条 scan 事件。",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ScanAllResult" } } }
+          }
+        }
+      }
+    },
+    "/agents/install-all": {
+      "post": {
+        "tags": ["Agents"],
+        "summary": "全量安装（循环 Install）",
+        "description": "依次调用 Install() 每个 agent，累计成功数/失败数 + 失败详情。",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InstallAllResult" } } }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "agentName": {
+        "name": "name",
+        "in": "path",
+        "required": true,
+        "description": "kebab-case agent 英文名",
+        "schema": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "example": "drize-engineer"
+      },
+      "eventType": {
+        "name": "type",
+        "in": "query",
+        "required": false,
+        "description": "按事件类型筛选",
+        "schema": {
+          "type": "string",
+          "enum": ["install", "uninstall", "scan", "runtime", "depends", "create", "delete"]
+        }
+      },
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "返回条数，默认 100，范围 1~500",
+        "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 500 }
+      },
+      "priority": {
+        "name": "priority",
+        "in": "query",
+        "required": false,
+        "description": "按优先级过滤",
+        "schema": { "type": "string", "enum": ["P0", "P1"] }
+      },
+      "installed": {
+        "name": "installed",
+        "in": "query",
+        "required": false,
+        "description": "按安装状态过滤（installed=true/false）",
+        "schema": { "type": "string", "enum": ["true", "false"] }
+      },
+      "runtime": {
+        "name": "runtime",
+        "in": "query",
+        "required": false,
+        "description": "按 runtime_status 过滤",
+        "schema": { "type": "string", "enum": ["busy", "idle"] }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "请求参数不合法 / JSON 解析失败 / 前置校验不通过",
+        "content": {
+          "application/json": {
+            "schema": { "type": "object", "properties": { "error": { "type": "string" } } },
+            "example": { "error": "runtime_status must be 'idle' or 'busy'" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在",
+        "content": {
+          "application/json": {
+            "schema": { "type": "object", "properties": { "error": { "type": "string" } } },
+            "example": { "error": "agent 'xxx' not found" }
+          }
+        }
+      },
+      "GateCheckFailure": {
+        "description": "5 条治理门槛未全部通过（硬冲突/软冲突/Skill 缺失/优先级/kebab-case）",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/GateCheckResult" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "服务端异常",
+        "content": {
+          "application/json": {
+            "schema": { "type": "object", "properties": { "error": { "type": "string" } } }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Agent": {
+        "type": "object",
+        "description": "完整 Agent 模型（snake_case 字段名，对应 SQLite agents 表 19 列）",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "kebab-case 英文名" },
+          "cn_name": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1"] },
+          "emoji": { "type": "string" },
+          "desc": { "type": "string" },
+          "role": { "type": "string" },
+          "how_to_trigger": { "type": "object" },
+          "process": { "type": "array", "items": { "type": "string" } },
+          "boundary": { "type": "array", "items": { "type": "string" } },
+          "tools": { "type": "array", "items": { "type": "string" } },
+          "depends_on": { "type": "array", "items": { "type": "string" }, "description": "kebab-case agent 名列表" },
+          "install_status": { "type": "string", "enum": ["installed", "partial", "not-installed"] },
+          "install_date": { "type": ["string", "null"], "format": "date-time" },
+          "runtime_status": { "type": "string", "enum": ["idle", "busy"] },
+          "last_seen": { "type": ["string", "null"] },
+          "updated_at": { "type": ["string", "null"] },
+          "status_light": { "type": "string", "description": "派生字段：🟢 待命 / 🟡 忙碌" },
+          "status_label": { "type": "string", "description": "派生字段：待命 / 忙碌中" }
+        }
+      },
+      "AgentCreateRequest": {
+        "type": "object",
+        "required": ["name", "cn_name", "priority"],
+        "description": "POST /agents 创建请求体。name 必须通过 5 条治理门槛（硬冲突/软冲突/Skill 存在/优先级合法/kebab-case）。",
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "cn_name": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1"] },
+          "emoji": { "type": "string" },
+          "desc": { "type": "string" },
+          "role": { "type": "string" },
+          "depends_on": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "AgentUpdateRequest": {
+        "type": "object",
+        "description": "PUT /agents/{name} 更新请求体。path 里的 name 覆盖 body 里的 name。",
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9-]+$", "description": "会被 path 里的 name 覆盖" },
+          "cn_name": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1"] },
+          "depends_on": { "type": "array", "items": { "type": "string" } },
+          "runtime_status": { "type": "string", "enum": ["idle", "busy"] }
+        }
+      },
+      "AgentSummary": {
+        "type": "object",
+        "description": "GET /agents summary + GET /stats agents 聚合",
+        "properties": {
+          "total": { "type": "integer" },
+          "installed": { "type": "integer" },
+          "partial": { "type": "integer" },
+          "missing": { "type": "integer" },
+          "busy": { "type": "integer" },
+          "idle": { "type": "integer", "description": "stats 响应里计算：total - busy" }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "version": { "type": "string", "description": "版本号（硬编码 v3.0-websocket-live，每次发版手改）" },
+          "db_agents": { "type": "integer", "description": "DB 里 agent 数量" },
+          "uptime_sec": { "type": "integer", "description": "HttpServer.StartAsync 后运行秒数" }
+        }
+      },
+      "StatsResponse": {
+        "type": "object",
+        "properties": {
+          "agents": { "$ref": "#/components/schemas/AgentSummary" },
+          "events_total": { "type": "integer", "description": "status_events 表总行数" },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "port": { "type": "integer", "default": 3001 },
+              "uptime_sec": { "type": "integer" },
+              "db_schema_version": { "type": ["string", "null"] },
+              "db_updated_at": { "type": ["string", "null"] }
+            }
+          }
+        }
+      },
+      "InstallResult": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "copied": { "type": "array", "items": { "type": "string" }, "description": "成功 Copy 的文件绝对路径" },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UninstallResult": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "deleted": { "type": "array", "items": { "type": "string" } },
+          "errors": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "ScanOneResult": {
+        "type": "object",
+        "description": "POST /agents/{name}/scan 单 agent 扫描结果（P0 Bug fix：O(1) 不扫全量）",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "agent_name": { "type": "string" },
+          "old_status": { "type": "string", "enum": ["installed", "partial", "not-installed", ""] },
+          "new_status": { "type": "string", "enum": ["installed", "partial", "not-installed"] },
+          "updated": { "type": "boolean", "description": "old != new 时为 true" }
+        }
+      },
+      "ScanAllResult": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "installed": { "type": "integer" },
+          "partial": { "type": "integer" },
+          "missing": { "type": "integer" },
+          "updated": { "type": "array", "items": { "type": "string" }, "description": "格式：'agent-name: old → new'" }
+        }
+      },
+      "InstallAllResult": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "succeeded": { "type": "integer" },
+          "failed": { "type": "integer" },
+          "failures": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "StatusEvent": {
+        "type": "object",
+        "description": "status_events 表单行",
+        "properties": {
+          "id": { "type": "integer" },
+          "agent_name": { "type": "string" },
+          "event_type": { "type": "string", "enum": ["install", "uninstall", "scan", "runtime", "depends", "create", "delete"] },
+          "event_data": { "type": ["string", "null"], "description": "可选 JSON 字符串" },
+          "created_at": { "type": ["string", "null"] }
+        }
+      },
+      "GateCheckResult": {
+        "type": "object",
+        "description": "GovernanceService.RunGateChecks 返回值。5 条门槛：硬冲突/软冲突/Skill 完整性/优先级/kebab-case。",
+        "properties": {
+          "all_pass": { "type": "boolean" },
+          "failed_gates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": { "type": "string", "description": "GATE-HARD-NAME-DUP / GATE-SOFT-CONFLICT / ..." },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "项目设计层文档",
+    "url": "file:///C:/Users/Administrator/Desktop/Agent/团队工作台/AGENTS.md"
+  }
+}

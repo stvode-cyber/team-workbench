@@ -1,5 +1,9 @@
 # dependencies
 node_modules/
+python-engine/.venv/
+python-engine/build/
+python-engine/dist/
+python-engine/python-engine.spec
 
 # build
 dist/

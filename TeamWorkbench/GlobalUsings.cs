@@ -5,3 +5,4 @@ global using Point = System.Windows.Point;
 global using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 global using MouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
 global using MessageBox = System.Windows.MessageBox;
+global using UserControl = System.Windows.Controls.UserControl;

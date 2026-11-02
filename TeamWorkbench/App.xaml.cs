@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Threading;
 using System.Windows;
+using TeamWorkbench.Config;
 using TeamWorkbench.Services;
 
 namespace TeamWorkbench;
@@ -17,6 +18,9 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Day 16: 加载持久化配置（幂等，首次运行写默认）
+        AppConfig.Load();
 
         // Phase 5: 单实例 Mutex
         _mutex = new Mutex(true, "TeamWorkbench.Mutex", out var createdNew);

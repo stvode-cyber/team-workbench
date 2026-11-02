@@ -1,7 +1,23 @@
-# DC-001 · 交接台账 · 2026-10-31
+> ⚠️ **DEPRECATED · 本文件内容已过时**
+> 
+> 本文件记录的是 **v3.0 MVP Node/Express + Vue3 原型**（2026-10-31）。
+> 该架构已被 **v3.0 C# WPF 原生重写**（tag v3.0-csharp-wpf → commit 31c143c）完全替换。
+> 
+> 2026-11-01 新增 v3.1.0 融合设计：Python FastAPI + LiteLLM 调度引擎。
+> 
+> **新接手者请看（按优先级）：**
+>   1. `AGENTS.md` frontmatter + ⑨ v3.1.0 融合路线图板块
+>   2. `v3.1.0-融合指南针.md`（唯一设计依据，SQL/API/架构/工期全覆盖）
+>   3. `TeamWorkbench.csproj` + `python-engine/`（尚未存在，Phase 1 未开工）
+>   4. 本文件可忽略，仅作历史参考
+> 
+> 修复日期：2026-11-01 · REG-HANDOFF-DEPRECATE-001
 
-> 新 AI 接手第一步：**先跑 `Get-Content HANDOFF.md`**，读完再动手。
-> 铁律 #41：好的 handoff 让接手者 30 秒接棒，不用重走一遍摸索。
+---
+
+# DC-001 · 交接台账 · 2026-10-31（历史存档）
+
+> 以下内容为 v3.0 MVP 原型交接记录，已废弃。保留仅供参考。
 
 ---
 

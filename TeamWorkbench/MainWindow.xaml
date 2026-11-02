@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vms="clr-namespace:TeamWorkbench.ViewModels"
+        xmlns:views="clr-namespace:TeamWorkbench.Views"
         Title="🤖 AI 专岗员工面板 · v3.0 WPF 原生"
         Height="680" Width="1280"
         MinHeight="500" MinWidth="900"
@@ -215,6 +216,13 @@
                                 <TextBlock Text="{Binding InstallStatus}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" VerticalAlignment="Center"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button x:Name="ImportBtn"
+                                        Content="📥 导入调度" Height="28"
+                                        Background="{StaticResource AccentBrush}"
+                                        Foreground="White" BorderThickness="0"
+                                        FontSize="12" FontWeight="Bold"
+                                        Cursor="Hand" Padding="12,0" Margin="0,0,8,0"
+                                        Click="ImportBtn_Click"/>
                                 <Button x:Name="InstallBtn"
                                         Content="📦 安装" Height="28"
                                         Background="{StaticResource AccentBlueBrush}"
@@ -238,11 +246,12 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <!-- ========== 主布局：顶栏 + 左 ListBox + 右 ContentControl ========== -->
+    <!-- ========== 主布局：顶栏 + TabControl（4 Tab）════════════════════ -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="56"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="36"/>   <!-- Day 12 新增：TabControl 选项卡高度 -->
+            <RowDefinition Height="*"/>    <!-- Day 12 调整：Tab 内容区 -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="240"/>
@@ -301,20 +310,150 @@
             </Grid>
         </Border>
 
-        <!-- 左侧：Agent 花名册 ListBox（绑定 FilteredAgents，不再是全量 Agents）-->
-        <ListBox Grid.Row="1" Grid.Column="0"
-                 Style="{StaticResource AgentListBox}"
-                 ItemsSource="{Binding FilteredAgents}"
-                 SelectedItem="{Binding SelectedAgent}"
-                 ItemTemplate="{StaticResource AgentListItemTemplate}"/>
+        <!-- ========== Day 12 新增：48px TabControl ========== -->
+        <TabControl x:Name="MainTabControl" Grid.Row="1" Grid.ColumnSpan="2"
+                    Background="{StaticResource BgMidBrush}"
+                    BorderThickness="0"
+                    TabStripPlacement="Top">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem">
+                    <Setter Property="Header" Value=""/>
+                    <Setter Property="Height" Value="32"/>
+                    <Setter Property="FontSize" Value="12"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                </Style>
+            </TabControl.ItemContainerStyle>
 
-        <!-- 右侧：详情 ContentControl -->
-        <GridSplitter Grid.Row="1" Grid.Column="0" Width="3" HorizontalAlignment="Right"
-                      Background="{StaticResource BgLightBrush}"/>
+            <!-- Tab 0: 📋 花名册（完整复用现有布局）-->
+            <TabItem Height="32">
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="📋 花名册" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold"/>
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="240"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-        <ContentControl Grid.Row="1" Grid.Column="1"
-                        Content="{Binding SelectedAgent}"
-                        ContentTemplate="{StaticResource AgentDetailTemplate}"/>
+                    <!-- 左侧：Agent 花名册 ListBox（绑定 FilteredAgents，不再是全量 Agents）-->
+                    <ListBox Grid.Column="0"
+                             Style="{StaticResource AgentListBox}"
+                             ItemsSource="{Binding FilteredAgents}"
+                             SelectedItem="{Binding SelectedAgent}"
+                             ItemTemplate="{StaticResource AgentListItemTemplate}"/>
 
+                    <!-- GridSplitter -->
+                    <GridSplitter Grid.Column="0" Width="3" HorizontalAlignment="Right"
+                                  Background="{StaticResource BgLightBrush}"/>
+
+                    <!-- 右侧：详情 ContentControl -->
+                    <ContentControl Grid.Column="1"
+                                    Content="{Binding SelectedAgent}"
+                                    ContentTemplate="{StaticResource AgentDetailTemplate}"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 1: 🎯 调度中心（Day 13 DispatchCenterView 填三栏 UI）-->
+            <TabItem Height="32">
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="🎯 调度中心" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold"/>
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
+                <views:DispatchCenterView x:Name="DispatchCenterView"/>
+            </TabItem>
+
+            <!-- Tab 2: 📜 日志（Day 14 Python 引擎启动日志 + SSE 心跳）-->
+            <TabItem Height="32">
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="📜 日志" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold"/>
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
+                <Border Background="{StaticResource BgMidBrush}" Margin="4">
+                    <RichTextBox x:Name="Tab2LogOutput"
+                                 IsReadOnly="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Background="{StaticResource BgDeepBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="0"
+                                 FontSize="12"/>
+                </Border>
+            </TabItem>
+
+            <!-- Tab 3: ⚙️ 设置（Day 14 Python 引擎配置骨架）-->
+            <TabItem Height="32">
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="⚙️ 设置" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="Bold"/>
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
+                <Border Background="{StaticResource BgDeepBrush}" Margin="40">
+                    <StackPanel>
+                        <TextBlock Text="⚙️ Python 引擎配置" FontSize="20" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,24"/>
+
+                        <!-- python.exe 路径 -->
+                        <TextBlock Text="Python 可执行文件" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" Margin="0,4,0,6"/>
+                        <TextBox x:Name="PythonExeBox" Height="32" Padding="8,0"
+                                 Background="{StaticResource BgMidBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="1" BorderBrush="{StaticResource BgLightBrush}"/>
+
+                        <!-- Working Directory -->
+                        <TextBlock Text="Python Engine 工作目录" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" Margin="0,16,0,6"/>
+                        <TextBox x:Name="PythonWorkingDirBox" Height="32" Padding="8,0"
+                                 Background="{StaticResource BgMidBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderThickness="1" BorderBrush="{StaticResource BgLightBrush}"/>
+
+                        <!-- 端口 -->
+                        <TextBlock Text="端口" Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="12" Margin="0,16,0,6"/>
+                        <TextBox x:Name="PythonPortBox" Height="32" Padding="8,0"
+                                 IsReadOnly="True"
+                                 Background="{StaticResource BgMidBrush}"
+                                 Foreground="{StaticResource TextSecondaryBrush}"
+                                 BorderThickness="1" BorderBrush="{StaticResource BgLightBrush}"/>
+
+                        <!-- 按钮 -->
+                        <StackPanel Orientation="Horizontal" Margin="0,28,0,0">
+                            <Button x:Name="RestartEngineBtn" Content="🔄 重启引擎" Height="36" Padding="20,0"
+                                    Background="{StaticResource AccentBlueBrush}"
+                                    Foreground="White" BorderThickness="0"
+                                    FontSize="13" FontWeight="Bold" Cursor="Hand"
+                                    Click="RestartEngineBtn_Click"/>
+                            <Button x:Name="SaveSettingsBtn" Content="💾 保存" Height="36" Padding="20,0" Margin="12,0,0,0"
+                                    Background="{StaticResource BgLightBrush}"
+                                    Foreground="{StaticResource TextSecondaryBrush}"
+                                    BorderThickness="0" FontSize="13" Cursor="Hand"
+                                    Click="SaveSettingsBtn_Click"/>
+                        </StackPanel>
+
+                        <Border Margin="0,28,0,0" Padding="16,12"
+                                Background="{StaticResource BgMidBrush}" CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock Text="📦 当前状态" FontWeight="Bold"
+                                           Foreground="{StaticResource TextPrimaryBrush}" FontSize="14"/>
+                                <TextBlock Text="⚪ Python 引擎未启动"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="12" Margin="0,4,0,0"/>
+                                <TextBlock Text="⚪ LiteLLM mock 模式"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="12" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <!-- ========== Day 12 移到 Tab 0 内部 ========== -->
+        <!-- 原 Row 1 的 ListBox + GridSplitter + ContentControl 已在 Tab 0 Content 里 -->
     </Grid>
 </Window>

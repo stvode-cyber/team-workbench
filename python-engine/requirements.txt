@@ -1,0 +1,12 @@
+# === Day 1 SQLite schema 对齐 ===
+SQLAlchemy>=2.1
+fastapi>=0.162
+uvicorn[standard]>=0.54
+
+# === Day 3 LiteLLM + Day 5 checkpoint ===
+# 1.106.6: Day 9/10 实测稳定，mock 失败注入 + retry=False
+litellm>=1.106.6
+
+# === Day 6 FastAPI + SSE ===
+# 3.6.0: SSE 协议 event 行解析 + payload JSON 双重 event 字段
+sse-starlette>=3.6

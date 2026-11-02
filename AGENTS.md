@@ -1,10 +1,10 @@
 ---
 project: AI 专岗员工可视化工作台
-version: "3.0"
+version: "3.1.0-fusion-design"
 updated: 2026-11-01
 owner: 1号指令母版配套
-stage: "✅ v3.0 C# WPF Native MVP 全栈交付"
-git_tag: "v3.0-csharp-wpf"
+stage: "[>] v3.1.0 融合设计阶段（C# WPF 大壳 × Python 多模型调度引擎）"
+git_tag: "v3.0-csharp-wpf → v3.1.0-fusion (todo)"
 ---
 
 # AI 专岗员工可视化工作台 · AGENTS.md
@@ -288,6 +288,9 @@ Start-Process ".\AI专岗员工面板.html"
 | 2026-10-31 | REG-AGENTS-INIT | 新建 `AGENTS.md`（七块区完整版） | 项目刚交付还没设计层文档 | 根目录 · 全项目设计层 |
 | 2026-10-31 | REG-AGENTS-INIT | 新建 `项目进程.md`（里程碑追踪） | 接手铁律 #19 要求第一时间建 | 根目录 |
 | 2026-10-31 | REG-PANEL-001 | 面板增强：状态动态轮播 + 调动指引 section + 员工说明 section | 用户需求「展示员工状态和调动指引」 | `AI专岗员工面板.html` + `01_总览面板/员工面板.html` |
+| 2026-11-01 | REG-V31-DESIGN-001 ✅ | **v3.1.0 融合设计冻结**：新建 `v3.1.0-融合指南针.md`（13 板块完整设计：SQL schema + Python FastAPI 签名 + C# SSE 客户端签名 + 25 天工期 + 20 条发布检查清单）| v3.0 MVP 发完，用户要「加个大框 + 融合工作台」| 新增文件（不碰 v3.0 已有）|
+| 2026-11-01 | REG-V31-DESIGN-002 ✅ | GAP-01 实锤：Trae agent-tool-host.exe 是 Rust + NamedPipe IPC，无 HTTP 暴露 → LiteLLM 放弃 CustomLLM 调 traecli，改用 OpenRouter + Ollama 双路兜底 | 本机实跑 agent-tool-host.exe + 端口扫描 3000/3001/4001/4301 全不通 | python-engine 集成层 |
+| 2026-11-01 | REG-V31-DESIGN-003 ✅ | AGENTS.md 增量加 ⑨ v3.1.0 融合路线图（指针到指南针）+ frontmatter stage 更新为融合设计阶段 | 铁律 #24：规矩只能增量改，不许整文件重写 | AGENTS.md 4 行 |
 | 2026-10-30 | （原始交付） | 交付 v2.0：00-04 四大分区 + 11 专岗三件套 + 2 份 HTML 面板 | 1号指令母版配套初始化 | 全项目 |
 
 ---
@@ -310,11 +313,15 @@ Start-Process ".\AI专岗员工面板.html"
 
 | 编号 | 决策项 | 最终选择 |
 |---|---|---|
-| D1 | 技术栈 | **B. Node/Express + SQLite**（后端 + WebSocket + Vue3 SPA） |
-| D2 | 调用链可视化 | **B. AutoGen 风格拖拽画布**（v3.0 Phase 2） |
-| D3 | 状态实时性 | **B. WebSocket 真实时**（后端推，前端不轮询） |
-| D4 | 安装功能 | **B. 面板内嵌终端 xterm.js**（v3.0 Phase 3） |
-| D5 | 新增功能 | **A+B. 搜索框 + 状态筛选**（MVP 必做） |
+| D1 | 技术栈 | **B. Node/Express + SQLite**（后端 + WebSocket + Vue3 SPA） ✅ 废弃 → 实际是 C# WPF（v3.0-csharp-wpf tag） |
+| D2 | 调用链可视化 | **B. AutoGen 风格拖拽画布**（v3.0 Phase 2） ✅ 废弃 → WPF 原生 Canvas |
+| D3 | 状态实时性 | **B. WebSocket 真实时**（后端推，前端不轮询） ✅ 废弃 → C# WebSocketServer 已有 |
+| D4 | 安装功能 | **B. 面板内嵌终端 xterm.js**（v3.0 Phase 3） ✅ 废弃 → WPF RichTextBox + Process.Start 已有 |
+| D5 | 新增功能 | **A+B. 搜索框 + 状态筛选**（MVP 必做） ✅ 废弃 → WPF UI 已有 |
+
+> ⚠️ **以上 D1-D5 为 v3.0 MVP 原型决策（2026-10-31），已被完全替换**。
+> 2026-11-01 v3.1.0 融合架构新决策见 **⑨ 板块 D1-D8**（C# WPF + Python FastAPI）。
+> 修复：REG-HANDOFF-DEPRECATE-002
 
 ### 三阶段开发路线图
 
@@ -434,3 +441,71 @@ Step 4: ws.ts 推送 + 前端 Vue3 骨架（Vite）
 Step 5: 搜索 + 筛选 + 从 HTML 面板迁移 Vue SFC
         → MVP 闭环 ✅
 ```
+
+---
+
+## ⑨ v3.1.0 融合路线图（2026-11-01 · 设计冻结，Phase 1 未开工）
+
+> ⚠️ **v3.1.0 完整设计文档独立存放**：`v3.1.0-融合指南针.md`
+> 本板块只放指针 + 核心决策 + 与 v3.0 的关系。
+> 所有开发、测试、发版都以 `v3.1.0-融合指南针.md` 为唯一设计依据。
+
+### 融合本质
+
+```
+v3.0 C# WPF  ──► 管「谁」（11 个专岗的 system_prompt + 职责 + 边界）
+                       │ 自动流入
+                  v3.1.0 Python Scheduler ──► 管「怎么让它们同时跑」
+                                            （DIRECT/SEQ/PARALLEL/HYBRID + LiteLLM + checkpoint）
+```
+
+**垂直关系，不是并列**：v3.0 是注册中心（输入源），v3.1.0 加执行引擎。
+
+### 架构决策（已冻结，不再复议）
+
+| # | 决策 | 选什么 | 为什么 |
+|---|------|--------|--------|
+| D1 | 技术栈 | **C# WPF 大壳 + Python FastAPI 引擎**（独立进程） | 桌面壳 WPF 最成熟；多模型调度 Python LiteLLM 是事实标准；独立进程互不影响 |
+| D2 | C# ↔ Python 通信 | **localhost HTTP/SSE + subprocess** | CSnakes prototype 不能上；Python.NET 有 GIL 风险；subprocess + HTTP 最稳 |
+| D3 | LLM 网关 | **LiteLLM + OpenRouter（主）+ Ollama（fallback）** | Trae 没暴露 HTTP API（GAP-01 实锤）；OpenRouter 统一 100+ provider |
+| D4 | 调度模式 | **DIRECT / SEQUENTIAL / PARALLEL / HYBRID（DAG 拓扑）** | Hybrid = graphlib.TopologicalSorter 分层 + asyncio.gather（SPOQ 论文验证） |
+| D5 | 数据库 | **单 SQLite WAL 模式** | 多进程并发读写安全（PRAGMA journal_mode=WAL） |
+| D6 | Durability | **checkpoint WAL + idempotency_key**（MeshFlow 生产模式） | STARTED → 执行 → COMMITTED；Resume 时 STARTED 无 COMMITTED → 重跑 |
+| D7 | HITL | **approval_request 表 + 30min 超时自动 reject** | 每个 agent 可标记 approval_required=true → 执行前中断等审批 |
+| D8 | Retry | **指数退避 3 次（1s/2s/4s）+ 60s timeout** | LiteLLM 超时自动重试，3 次全失败 → agent_runs.status=failed |
+
+### 文件新增（v3.1.0 不动 v3.0 已有文件）
+
+```
+团队工作台/
+├── v3.1.0-融合指南针.md              ← 🆕 本文档（13 板块完整设计）
+├── TeamWorkbench/                    ← 增量改，0 重写
+│   ├── MainWindow.xaml               ← NavigationWindow + TabControl
+│   └── Services/
+│       ├── PythonEngineHost.cs       ← 🆕 子进程管理（spawn/terminate/kill）
+│       └── SseClient.cs              ← 🆕 SSE 协议解析
+└── python-engine/                    ← 🆕 全新 Python 项目
+    ├── main.py                       ← FastAPI 入口
+    ├── scheduler/engine.py            ← DIRECT/SEQ/PARALLEL/HYBRID
+    ├── scheduler/checkpoint.py        ← WAL durable execution
+    └── integrations/litellm_setup.py  ← LiteLLM 初始化
+```
+
+### 工期（25 天，Phase 1 未开工）
+
+```
+Phase 1 (Day 1-5)  Python 引擎骨架 + 数据打通
+Phase 2 (Day 6-10) SSE + Hybrid DAG + checkpoint + HITL + retry
+Phase 3 (Day 11-15) C# WPF 融合（SseClient + PythonEngineHost + 三栏 UI）
+Phase 4 (Day 16-20) 流水线模板 + 一键导入 + 审批弹窗
+Phase 5 (Day 21-25) PyInstaller 打包 + 冒烟 + Release + GitHub
+```
+
+### GAP（已知坑）
+
+- **GAP-01 实锤**：Trae 没有可 subprocess 调的 AI CLI（agent-tool-host.exe 是 Rust + NamedPipe IPC）→ LiteLLM 改用 OpenRouter + Ollama
+- **GAP-02**：Windows-only（WPF 只有 Windows 有）
+
+### 参考
+
+完整设计（SQL schema / Python 函数签名 / C# 函数签名 / 20 条发布检查清单 / 冻结边界）见 **`v3.1.0-融合指南针.md`**。
